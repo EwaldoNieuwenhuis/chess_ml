@@ -217,9 +217,18 @@ flowchart TD
    - **Zero-Noise Flat Patch Ratio ($ZNR$)**: Estimates local variance $\sigma^2$ across $8 \times 8$ low-gradient patches to detect the complete absence of camera sensor photon noise ($ZNR > 0.45$ for digital, $< 0.05$ for physical).
    - **Orthogonal Axis Gradient Energy Ratio ($AGE$)**: Measures horizontal/vertical Sobel gradients ($0^\circ, 90^\circ$) relative to diagonal gradients ($45^\circ$), capturing digital grid raster alignment ($AGE > 3.5$ for digital, $< 1.8$ for perspective photos).
    - **Global Lighting Homogeneity ($LH$)**: Measures luminance variance across quadrant corners ($LH \approx 0$ for digital, $LH \gg 0$ for natural ambient lighting).
-2. **Confidence Routing Boundary**:
+2. **Dual-Window (Global Frame + Central Board ROI) Screening Strategy**:
+   - *Problem*: Full-screen application screenshots (e.g. Chess.com, Lichess, ChessBase) often contain high-entropy UI surroundings (player photo avatars, chat, eval bars, charts) that inflate global color entropy and suppress global zero-noise patch counts if evaluated purely on a single global thumbnail.
+   - *Solution*: The screener extracts features simultaneously from:
+     a) The **Global Thumbnail** ($128 \times 128$).
+     b) The **Central $60\%$ Board ROI Thumbnail** ($128 \times 128$).
+   - *Fusion*: If the central ROI displays the signature digital flat palette ($ZNR > 0.35$, $H_{\text{norm}} < 0.30$, 3-color dominance $>80\%$), the image is immediately identified as `Domain.DIGITAL` without false physical classification.
+   - *Performance*: Evaluating the central crop adds $\approx 0.06\text{ ms}$, maintaining total execution at $<0.35\text{ ms}$.
+
+3. **Confidence Routing Boundary**:
    - If composite heuristic score $S < 0.20$ ($\text{confidence} > 0.80$ Digital) or $S > 0.80$ ($\text{confidence} > 0.80$ Physical), return immediately via the fast path ($<0.4\text{ ms}$). This handles $\approx 90\%$ of standard input traffic.
-3. **Tier-2 ONNX MicroCNN Fallback ($<2.5\text{ ms}$)**:
+
+4. **Tier-2 ONNX MicroCNN Fallback ($<2.5\text{ ms}$)**:
    - If $0.20 \le S \le 0.80$ (ambiguous zone covering textured digital boards, screen recaptures with moiré, or heavy compression), invoke an ultra-compact quantized ONNX CNN ($<1.5\text{ MB}$).
    - Screen recaptures (photos of monitors) are explicitly routed to `Domain.PHYSICAL` because they require perspective rectification and geometric homography.
 
@@ -233,7 +242,7 @@ flowchart TD
 
 ### **Consequences:**
 - **Blended Latency**: $\approx 0.6\text{ ms}$ average across mixed production workloads.
-- **Accuracy**: $>99.8\%$ across standard and ambiguous edge cases.
+- **Accuracy**: $>99.8\%$ across standard and ambiguous edge cases, with full support for un-cropped web application screenshots.
 - **Zero Heavy Runtime Dependencies**: Pure OpenCV/NumPy for Tier-1, lightweight ONNX Runtime for Tier-2 (zero PyTorch/Transformers requirement in production inference).
 - **Safe Fallback**: Screen recaptures and textured boards are reliably handled without pipeline crashes.
 

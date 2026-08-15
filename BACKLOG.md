@@ -203,7 +203,7 @@ flowchart TD
 ```
 
 ### 🔹 Feature 3.1: Automatic Input Domain Classifier
-- [ ] **US-3.1.1: Multi-Feature Statistical Heuristics Screener (Tier-1 Fast Path)**
+- [x] **US-3.1.1: Multi-Feature Statistical Heuristics Screener (Tier-1 Fast Path)** (Completed: 2026-08-15)
   - **Description:** Implement a sub-millisecond, zero-weight statistical classifier combining 4 normalized features on a downscaled $128 \times 128$ thumbnail:
     1. *Normalized HSV Palette Shannon Entropy ($H_{\text{norm}}$)*: Quantizes color distribution into 64 bins ($H_{\text{norm}} < 0.42$ for digital, $> 0.68$ for physical).
     2. *Zero-Noise Flat Patch Ratio ($ZNR$)*: Measures local pixel variance $\sigma^2$ across $8 \times 8$ low-gradient blocks to detect the presence/absence of sensor photon noise.
