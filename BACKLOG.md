@@ -14,7 +14,7 @@
 
 | Epic | Description | Features | Status |
 | :--- | :--- | :---: | :---: |
-| **EPIC-01** | Core Infrastructure, Tooling & Engine Evaluation | 2 | `[-]` In Progress |
+| **EPIC-01** | Core Infrastructure, Tooling & Engine Evaluation | 2 | `[x]` Completed |
 | **EPIC-02** | Open-Source Dataset Discovery, Ingestion & Curation | 3 | `[ ]` Not Started |
 | **EPIC-03** | Domain Classification & Geometric Pre-Processing | 3 | `[ ]` Not Started |
 | **EPIC-04** | Chess Piece Detection & Recognition Model Architecture | 3 | `[ ]` Not Started |
@@ -54,21 +54,21 @@ flowchart LR
     - [x] Standard package layout with clean `__init__.py` exports and type hinting support.
 
 ### 🔹 Feature 1.2: Stockfish UCI Engine Wrapper
-- [ ] **US-1.2.1: Stockfish Engine Manager & Query Interface**
+- [x] **US-1.2.1: Stockfish Engine Manager & Query Interface**
   - **Description:** Create an asynchronous/synchronous Stockfish manager using `python-chess` that takes a FEN string and parameters (e.g. depth, time limit) and returns the top move and evaluation score.
   - **Acceptance Criteria:**
-    - Automatically discovers or downloads/locates local Stockfish binary across platforms (Windows/Linux).
-    - Returns structured object: `best_move` (e.g., `e2e4`, `g1f3`), `eval_type` (cp/mate), `eval_value` (float/int), `ponder_move`, and PV lines.
-    - Handles edge cases: checkmate on board, stalemate, invalid FEN raises custom `InvalidFENError`.
+    - [x] Automatically discovers or downloads/locates local Stockfish binary across platforms (Windows/Linux).
+    - [x] Returns structured object: `best_move` (e.g., `e2e4`, `g1f3`), `eval_type` (cp/mate), `eval_value` (float/int), `ponder_move`, and PV lines.
+    - [x] Handles edge cases: checkmate on board, stalemate, invalid FEN raises custom `InvalidFENError`.
   - 💡 **Architectural Notes & Alternatives:**
     - *Assumption:* Local native Stockfish 16.1/17 binary via UCI protocol with persistent process session.
     - *Alternative Considered:* Lichess Cloud Evaluation API (zero local CPU overhead, but network latency & rate limits) vs Stockfish WebAssembly/WASM vs third-party `stockfish` PyPI wrapper.
     - *Decision Recommendation:* Direct `python-chess` UCI protocol over OS pipe with persistent session pooling (<2ms latency vs 150ms re-spawning overhead). Windows `STARTUPINFO` suppression to prevent console popups. 3-tier auto-discovery (Env $\to$ `bin/` $\to$ PATH $\to$ on-demand GitHub release downloader) with a deterministic `python-chess` minimax fallback for CI environments. Terminal state pre-evaluation for checkmate/stalemate.
 
-- [ ] **US-1.2.2: Move Recommendation Unit Tests**
+- [x] **US-1.2.2: Move Recommendation Unit Tests**
   - **Description:** Implement unit tests verifying evaluation against famous puzzle positions (e.g., Opera Game mate-in-2, smothered mate, standard opening e4/d4).
   - **Acceptance Criteria:**
-    - `pytest tests/test_engine.py` passes 100% with deterministic mock/live engine responses.
+    - [x] `pytest tests/test_engine.py` passes 100% with deterministic mock/live engine responses.
 
 ---
 
