@@ -61,9 +61,9 @@ flowchart LR
     - Returns structured object: `best_move` (e.g., `e2e4`, `g1f3`), `eval_type` (cp/mate), `eval_value` (float/int), `ponder_move`, and PV lines.
     - Handles edge cases: checkmate on board, stalemate, invalid FEN raises custom `InvalidFENError`.
   - 💡 **Architectural Notes & Alternatives:**
-    - *Assumption:* Local native Stockfish 16/17 binary via UCI protocol.
-    - *Alternative Considered:* Lichess Cloud Evaluation API (zero local CPU overhead, but requires internet and has rate limits) vs Stockfish WebAssembly/WASM vs Neural Network Engine (LCZero).
-    - *Decision Recommendation:* Local Stockfish UCI binary as primary for zero latency offline analysis, with a lightweight fallback or mock mode for CI/unit testing environments where Stockfish binary is not pre-installed.
+    - *Assumption:* Local native Stockfish 16.1/17 binary via UCI protocol with persistent process session.
+    - *Alternative Considered:* Lichess Cloud Evaluation API (zero local CPU overhead, but network latency & rate limits) vs Stockfish WebAssembly/WASM vs third-party `stockfish` PyPI wrapper.
+    - *Decision Recommendation:* Direct `python-chess` UCI protocol over OS pipe with persistent session pooling (<2ms latency vs 150ms re-spawning overhead). Windows `STARTUPINFO` suppression to prevent console popups. 3-tier auto-discovery (Env $\to$ `bin/` $\to$ PATH $\to$ on-demand GitHub release downloader) with a deterministic `python-chess` minimax fallback for CI environments. Terminal state pre-evaluation for checkmate/stalemate.
 
 - [ ] **US-1.2.2: Move Recommendation Unit Tests**
   - **Description:** Implement unit tests verifying evaluation against famous puzzle positions (e.g., Opera Game mate-in-2, smothered mate, standard opening e4/d4).

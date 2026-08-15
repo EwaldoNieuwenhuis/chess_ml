@@ -37,22 +37,35 @@ Run the diagnostic script:
 ```bash
 python scripts/verify_env.py
 ```
-Expected output:
+Expected output on NVIDIA RTX 50-series (Blackwell `sm_120`) or RTX 40/30-series:
 ```text
 ==============================================================================
 ♟️  CHESS ML ENVIRONMENT & HARDWARE DIAGNOSTICS REPORT
 ==============================================================================
-[✅ PASS] Python Version                   : Python 3.11.x (Windows-10)
-[✅ PASS] PyTorch & CUDA Runtime           : PyTorch 2.x | CUDA 12.x | cuDNN 8.x/9.x
-[✅ PASS] GPU Accelerator                  : NVIDIA GeForce RTX ... (VRAM: ... GB)
-[✅ PASS] GPU Tensor Compute Test          : CUDA Matrix Multiplication passed
-[✅ PASS] Ultralytics (YOLO26/v12)         : loaded
-[✅ PASS] OpenCV (Perspective & Geometry)  : loaded
-[✅ PASS] python-chess (Rules & FEN Engine): loaded
-[✅ PASS] Albumentations (Augmentations)   : loaded
-[✅ PASS] ONNX Runtime (Model Execution)   : loaded
-[✅ PASS] Pydantic (Typed Data Contracts)  : loaded
+[✅ PASS] Python Version                   : Python 3.11.15 (Windows-10)
+[✅ PASS] PyTorch & CUDA Runtime           : PyTorch 2.11.0+cu128 | CUDA 12.8 | cuDNN 91900
+[✅ PASS] GPU Accelerator                  : NVIDIA GeForce RTX 5060 Ti (Devices: 1, Total VRAM: 15.93 GB)
+[✅ PASS] GPU Tensor Compute Test          : CUDA Matrix Multiplication passed (Tensor shape: [1000, 1000])
+[✅ PASS] Ultralytics (YOLO26/YOLOv12)     : v8.4.120
+[✅ PASS] OpenCV (Perspective & Geometry)  : v4.11.0
+[✅ PASS] python-chess (Rules & FEN Engine): v1.11.2
+[✅ PASS] Albumentations (Augmentations)   : v2.0.8
+[✅ PASS] ONNX Runtime (Model Execution)   : v1.28.0
+[✅ PASS] Pydantic (Typed Data Contracts)  : v2.13.4
+[✅ PASS] NumPy (Array Mathematics)        : v2.4.6
+[✅ PASS] Pillow (Image IO)                : v12.3.0
+[✅ PASS] PyYAML (Configuration Management): v6.0.3
 ------------------------------------------------------------------------------
 🎉 All environment dependencies and hardware checks passed successfully!
 ==============================================================================
 ```
+
+---
+
+## 3. Stockfish Binary Configuration
+The engine manager automatically checks the following paths:
+1. Custom environment variable: `STOCKFISH_PATH`
+2. Local repository directory: `bin/stockfish.exe` (Windows) or `bin/stockfish` (Linux)
+3. System `PATH` (`where stockfish` / `which stockfish`)
+
+If no binary is present, `StockfishManager.download_binary()` can download the official Stockfish 16.1+ binary automatically into `bin/`. Offline CI environments will automatically fallback to the internal `python-chess` deterministic evaluator.

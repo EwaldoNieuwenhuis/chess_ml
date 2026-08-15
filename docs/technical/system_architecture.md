@@ -30,6 +30,33 @@ graph TD
 
 ---
 
+### 3. Stockfish Engine Layer Architecture (`src/engine`)
+
+The Engine Manager abstracts the UCI communication into a high-performance, non-blocking evaluation service:
+
+```mermaid
+flowchart TD
+    A[FEN String] --> B{Valid FEN & Legal?}
+    B -->|Invalid| C[Raise InvalidFENError]
+    B -->|Checkmate / Stalemate| D[Immediate Terminal Evaluation: score_mate=0 / score_cp=0]
+    B -->|Active Game State| E{Stockfish Binary Available?}
+    E -->|Yes: Local bin / PATH| F[Persistent UCI Subprocess Session]
+    E -->|No / CI Test Mode| G[python-chess Internal Fallback Evaluator]
+    F --> H[UCI Protocol: setoption, position fen, go depth/time]
+    G --> I[Minimax Search / Heuristic Score]
+    H --> J[Parse InfoDict: PV, PovScore, Centipawns/Mate]
+    I --> J
+    J --> K[EngineEvaluation Pydantic Contract]
+```
+
+#### Key Engineering Features:
+* **Persistent Session Pool**: Avoids $150\text{ ms}$ process re-spawning penalty; keeps the engine initialized for $<2\text{ ms}$ queries.
+* **Windows GUI Isolation**: Sets `subprocess.STARTUPINFO.dwFlags |= STARTF_USESHOWWINDOW` to prevent command prompt windows from popping up.
+* **Auto-Downloader**: Automatically fetches the official Stockfish release for the local host platform if missing.
+* **Async & Sync Dual API**: Supports both `async def evaluate_async()` (for FastAPI / video loops) and `def evaluate_sync()` (for CLI / tests).
+
+---
+
 ## 2. Component Directory Architecture
 
 | Package | Responsibility | Primary Classes / Functions |
