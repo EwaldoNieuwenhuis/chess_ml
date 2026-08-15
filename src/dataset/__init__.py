@@ -2,6 +2,15 @@
 Dataset ingestion, normalization, and builder package for Chess ML.
 """
 
+from src.dataset.auditor import (
+    AnnotationViolation,
+    AuditConfig,
+    DatasetAuditReport,
+    DatasetIntegrityAuditor,
+    FilePairInfo,
+    ViolationSeverity,
+    ViolationType,
+)
 from src.dataset.builder import (
     DatasetBuilderError,
     DatasetDeduplicator,
@@ -82,6 +91,14 @@ __all__ = [
     "DatasetBuilderError",
     "InvalidSplitRatioError",
     "DatasetEmptyError",
+    "AuditConfig",
+    "AnnotationViolation",
+    "ViolationSeverity",
+    "ViolationType",
+    "FilePairInfo",
+    "DatasetAuditReport",
+    "DatasetIntegrityAuditor",
 ]
+
 
 

@@ -157,7 +157,7 @@ flowchart TD
     - Includes negative samples (empty background boards) with 0-byte `.txt` files to suppress false positive detections on empty squares.
     - Script `scripts/visualize_hybrid_dataset.py` creates sample overlays for visual QA of both digital and physical samples.
 
-- [ ] **US-2.3.3: Automated Dataset Integrity & Corruption Audit Tool**
+- [x] **US-2.3.3: Automated Dataset Integrity & Corruption Audit Tool**
   - **Description:** Implement an automated audit and validation tool (`scripts/audit_standardized_dataset.py`) to verify 100% of `.txt` annotations in `data/standardized/` and `data/hybrid_chess/` prior to training.
   - **Acceptance Criteria:**
     - Scans all annotation files and asserts: $0 \le class\_id \le 11$, all coordinates $\in [0.0, 1.0]$, no NaN/inf values, and $w, h > 0$.
