@@ -172,9 +172,36 @@ class EngineEvaluation(BaseModel):
     best_move_san: str = Field(default="", description="Best move in Standard Algebraic Notation e.g. 'e4'")
     score_cp: int | None = Field(default=None, description="Score in centipawns from current player perspective")
     score_mate: int | None = Field(default=None, description="Mate in N moves (positive=winning, negative=losing)")
-    depth: int = Field(..., ge=1, description="Stockfish search depth reached")
+    depth: int = Field(..., ge=0, description="Stockfish search depth reached (0 for terminal states)")
     ponder_move_uci: str | None = Field(default=None, description="Ponder move if available")
     pv: list[str] = Field(default_factory=list, description="Principal variation move sequence")
+
+    @property
+    def best_move(self) -> str:
+        """Alias for best_move_uci."""
+        return self.best_move_uci
+
+    @property
+    def ponder_move(self) -> str | None:
+        """Alias for ponder_move_uci."""
+        return self.ponder_move_uci
+
+    @property
+    def eval_type(self) -> str:
+        """Evaluation score type: 'mate' or 'cp'."""
+        return "mate" if self.score_mate is not None else "cp"
+
+    @property
+    def eval_value(self) -> int:
+        """Evaluation score value: mate distance (if mate) or centipawns (if cp)."""
+        if self.score_mate is not None:
+            return self.score_mate
+        return self.score_cp if self.score_cp is not None else 0
+
+    @property
+    def is_terminal(self) -> bool:
+        """Whether this position is a terminal game state (e.g. checkmate or stalemate on board)."""
+        return self.best_move_uci == ""
 
     @property
     def formatted_score(self) -> str:
@@ -183,3 +210,4 @@ class EngineEvaluation(BaseModel):
         if self.score_cp is not None:
             return f"{self.score_cp / 100.0:+.2f}"
         return "0.00"
+
