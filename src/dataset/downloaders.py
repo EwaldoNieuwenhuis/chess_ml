@@ -1,7 +1,8 @@
 """
 Automated Physical Dataset Ingestion & Downloader Engine.
 
-Provides modular, robust downloaders for:
+Provides fully configurable, data-driven downloaders for physical chess datasets
+driven by declarative YAML manifests (configs/dataset/physical_sources.yaml):
 - ChessReD (10,800 real-world photos via 4TU.ResearchData / Zenodo)
 - Roboflow Universe Staunton (Direct HTTP zip endpoint)
 - Kaggle Physical Datasets (Direct / Kaggle API)
@@ -26,23 +27,87 @@ from pathlib import Path
 from typing import Any, Callable
 
 import yaml
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger("chess_ml.dataset")
 
 # Standard HTTP headers to avoid 403 Forbidden on academic/cloud CDNs
-USER_AGENT = "ChessML-Pipeline/0.1.0 (+https://github.com/EwaldoNieuwenhuis/chess_ml)"
+DEFAULT_USER_AGENT = "ChessML-Pipeline/0.1.0 (+https://github.com/EwaldoNieuwenhuis/chess_ml)"
+DEFAULT_SOURCES_CONFIG_PATH = Path("configs/dataset/physical_sources.yaml")
 
 
 class DatasetDownloadError(Exception):
     """Raised when a dataset download or verification operation fails."""
 
 
+class DatasetFileConfig(BaseModel):
+    """Declarative specification for a single downloadable file or archive."""
+
+    model_config = ConfigDict(frozen=True)
+
+    filename: str
+    url: str
+    is_archive: bool = False
+    extract_subdir: str = ""
+    expected_md5: str | None = None
+    description: str = ""
+
+
+class DatasetSourceConfig(BaseModel):
+    """Declarative specification for a complete dataset source."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(..., description="Human-readable dataset name")
+    publisher: str = Field(default="", description="Publisher or repository source")
+    doi: str | None = Field(default=None, description="DOI reference if academic")
+    license: str = Field(default="Open", description="Dataset license identifier")
+    target_subdir: str = Field(..., description="Subdirectory under data/raw/physical/")
+    auth_required: bool = Field(default=False, description="Whether API key authentication is needed")
+    env_var: str | None = Field(default=None, description="Primary environment variable for API key")
+    env_vars: list[str] = Field(default_factory=list, description="Multiple environment variables if needed")
+    direct_url_template: str | None = Field(default=None, description="URL template with {api_key} placeholder")
+    archive_filename: str = Field(default="dataset.zip", description="Filename if downloading direct archive")
+    dataset_slug: str | None = Field(default=None, description="Kaggle or HuggingFace dataset slug")
+    fallback_url: str | None = Field(default=None, description="Documentation or download link for manual access")
+    is_archive: bool = Field(default=False, description="Whether top-level direct URL is an archive")
+    description: str = Field(default="", description="Overview of dataset contents and modality")
+    files: dict[str, DatasetFileConfig] = Field(default_factory=dict, description="Individual file specifications")
+
+
+def get_credential_from_env(key_name: str) -> str:
+    """
+    Retrieve an API key from system environment variables or local .env file.
+    
+    Args:
+        key_name: Name of the environment variable (e.g. 'ROBOFLOW_API_KEY').
+        
+    Returns:
+        The stripped string value, or empty string if not found or placeholder.
+    """
+    val = os.environ.get(key_name, "").strip()
+    if val and not val.startswith("your_"):
+        return val
+
+    # Search local .env file
+    env_path = Path(".env")
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith(f"{key_name}="):
+                val = line.split("=", 1)[1].strip().strip("\"'")
+                if val and not val.startswith("your_"):
+                    return val
+
+    return ""
+
+
 class BaseDatasetDownloader(ABC):
     """Abstract base class for dataset ingestion and extraction."""
 
-    def __init__(self, name: str, config: dict[str, Any] | None = None) -> None:
+    def __init__(self, name: str, config: DatasetSourceConfig) -> None:
         self.name = name
-        self.config = config or {}
+        self.config = config
 
     def download_file(
         self,
@@ -51,21 +116,12 @@ class BaseDatasetDownloader(ABC):
         expected_md5: str | None = None,
         description: str = "",
         force: bool = False,
+        chunk_size: int = 65536,
+        user_agent: str = DEFAULT_USER_AGENT,
         progress_callback: Callable[[int, int], None] | None = None,
     ) -> Path:
         """
         Download a remote file with streaming progress, integrity check, and atomic rename.
-        
-        Args:
-            url: Remote HTTP/HTTPS URL.
-            dest_path: Target local file path.
-            expected_md5: Optional expected MD5 hex string.
-            description: Human-readable label for logs/progress.
-            force: If True, redownload even if file exists and passes checks.
-            progress_callback: Optional callback receiving (bytes_downloaded, total_bytes).
-            
-        Returns:
-            The Path to the validated local file.
         """
         dest_path = Path(dest_path)
         dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -76,9 +132,7 @@ class BaseDatasetDownloader(ABC):
                 return dest_path
 
         temp_path = dest_path.with_suffix(dest_path.suffix + ".tmp")
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-
-        # Relaxed SSL context for environments with custom corporate certificates
+        req = urllib.request.Request(url, headers={"User-Agent": user_agent})
         ctx = ssl.create_default_context()
 
         try:
@@ -86,7 +140,6 @@ class BaseDatasetDownloader(ABC):
                 total_size = int(response.headers.get("Content-Length", 0))
                 bytes_downloaded = 0
                 hasher = hashlib.md5()
-                chunk_size = 65536  # 64 KB chunks
 
                 logger.info(
                     f"Downloading {description or dest_path.name} "
@@ -105,7 +158,7 @@ class BaseDatasetDownloader(ABC):
                             progress_callback(bytes_downloaded, total_size)
 
             actual_md5 = hasher.hexdigest()
-            if expected_md5 and actual_md5 != expected_md5:
+            if expected_md5 and actual_md5.lower() != expected_md5.lower():
                 if temp_path.exists():
                     temp_path.unlink()
                 raise DatasetDownloadError(
@@ -117,7 +170,7 @@ class BaseDatasetDownloader(ABC):
             if dest_path.exists():
                 dest_path.unlink()
             shutil.move(str(temp_path), str(dest_path))
-            logger.info(f"Successfully saved {dest_path.name} ({actual_md5})")
+            logger.info(f"Successfully saved {dest_path.name} (MD5: {actual_md5})")
             return dest_path
 
         except Exception as e:
@@ -140,13 +193,6 @@ class BaseDatasetDownloader(ABC):
     def safe_extract_zip(zip_path: Path, extract_dir: Path) -> list[Path]:
         """
         Safely extract a zip file with path traversal (Zip Slip) vulnerability protection.
-        
-        Args:
-            zip_path: Path to the .zip archive.
-            extract_dir: Destination directory.
-            
-        Returns:
-            List of extracted file paths.
         """
         extract_dir = Path(extract_dir).resolve()
         extract_dir.mkdir(parents=True, exist_ok=True)
@@ -154,7 +200,6 @@ class BaseDatasetDownloader(ABC):
 
         with zipfile.ZipFile(zip_path, "r") as archive:
             for member in archive.infolist():
-                # Prevent directory traversal vulnerability
                 target_path = (extract_dir / member.filename).resolve()
                 if not str(target_path).startswith(str(extract_dir)):
                     raise DatasetDownloadError(
@@ -177,107 +222,85 @@ class BaseDatasetDownloader(ABC):
 class ChessReDDownloader(BaseDatasetDownloader):
     """
     Downloader for the Chess Recognition Dataset (ChessReD - VISAPP 2024).
-    
-    Fetches official 4TU.ResearchData annotations and images into data/raw/physical/chessred/.
+    Driven completely by physical_sources.yaml configuration.
     """
 
-    ANNOTATIONS_URL = (
-        "https://data.4tu.nl/file/99b5c721-280b-450b-b058-b2900b69a90f/"
-        "3cae6364-daca-4967-b426-1e4b68cdb64c"
-    )
-    SAMPLE_ARCHIVE_URL = (
-        "https://github.com/tmasouris/end-to-end-chess-recognition/archive/refs/heads/main.zip"
-    )
-
-    def __init__(self, config: dict[str, Any] | None = None) -> None:
-        super().__init__(name="chessred", config=config)
-
     def download(self, base_output_dir: Path, force: bool = False) -> Path:
-        target_dir = Path(base_output_dir) / "chessred"
+        target_dir = Path(base_output_dir) / self.config.target_subdir
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"=== [1/2] Fetching ChessReD Annotations (4TU.ResearchData) ===")
-        annotations_path = target_dir / "annotations.json"
-        self.download_file(
-            url=self.ANNOTATIONS_URL,
-            dest_path=annotations_path,
-            description="ChessReD annotations.json",
-            force=force,
-        )
+        for file_key, file_spec in self.config.files.items():
+            logger.info(f"=== Fetching {self.config.name} [{file_key}] ===")
+            local_dest = target_dir / file_spec.filename
 
-        logger.info(f"=== [2/2] Fetching ChessReD Repository & Benchmark Assets ===")
-        sample_zip = target_dir / "chessred_repo.zip"
-        self.download_file(
-            url=self.SAMPLE_ARCHIVE_URL,
-            dest_path=sample_zip,
-            description="ChessReD benchmark repository package",
-            force=force,
-        )
+            self.download_file(
+                url=file_spec.url,
+                dest_path=local_dest,
+                expected_md5=file_spec.expected_md5,
+                description=file_spec.description or local_dest.name,
+                force=force,
+            )
 
-        # Extract repo sample assets
-        self.safe_extract_zip(sample_zip, target_dir / "repo_assets")
+            if file_spec.is_archive:
+                extract_target = target_dir / (file_spec.extract_subdir or file_key)
+                self.safe_extract_zip(local_dest, extract_target)
 
-        # Validate annotations format
-        if annotations_path.exists():
-            try:
-                with open(annotations_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    categories = len(data.get("categories", []))
-                    images_count = len(data.get("images", []))
-                    pieces_count = len(data.get("annotations", {}).get("pieces", []))
-                    logger.info(
-                        f"ChessReD manifest verified: {images_count} images, "
-                        f"{pieces_count} piece bounding boxes, {categories} categories."
-                    )
-            except Exception as e:
-                logger.warning(f"Could not parse annotations.json: {e}")
+        # Validate annotations format if present
+        annotations_file = self.config.files.get("annotations")
+        if annotations_file:
+            annotations_path = target_dir / annotations_file.filename
+            if annotations_path.exists():
+                try:
+                    with open(annotations_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        categories = len(data.get("categories", []))
+                        images_count = len(data.get("images", []))
+                        pieces_count = len(data.get("annotations", {}).get("pieces", []))
+                        logger.info(
+                            f"ChessReD manifest verified: {images_count} images, "
+                            f"{pieces_count} piece bounding boxes, {categories} categories."
+                        )
+                except Exception as e:
+                    logger.warning(f"Could not parse annotations.json: {e}")
 
         return target_dir
 
 
 class RoboflowDatasetDownloader(BaseDatasetDownloader):
     """
-    Downloader for Roboflow Universe physical chess datasets (e.g. Nelson Staunton).
-    
-    Fetches direct HTTP zip package using ROBOFLOW_API_KEY from environment or .env.
+    Downloader for Roboflow Universe physical chess datasets.
+    Driven completely by physical_sources.yaml configuration.
     """
 
-    DEFAULT_DATASET_URL = "https://universe.roboflow.com/ds/8N99xYwQ0L?key={api_key}"
-
-    def __init__(self, config: dict[str, Any] | None = None) -> None:
-        super().__init__(name="roboflow_staunton", config=config)
-
     def download(self, base_output_dir: Path, force: bool = False) -> Path:
-        target_dir = Path(base_output_dir) / "roboflow_staunton"
+        target_dir = Path(base_output_dir) / self.config.target_subdir
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        api_key = os.environ.get("ROBOFLOW_API_KEY", "").strip()
-        if not api_key:
-            # Check .env file directly if present
-            env_file = Path(".env")
-            if env_file.exists():
-                for line in env_file.read_text().splitlines():
-                    if line.startswith("ROBOFLOW_API_KEY="):
-                        api_key = line.split("=", 1)[1].strip().strip("\"'")
+        env_var_name = self.config.env_var or "ROBOFLOW_API_KEY"
+        api_key = get_credential_from_env(env_var_name)
 
-        if not api_key or api_key.startswith("your_"):
+        if not api_key:
             logger.warning(
-                "ROBOFLOW_API_KEY not configured in .env or environment.\n"
-                "To download Roboflow datasets automatically:\n"
-                "1. Get a free API key at https://app.roboflow.com\n"
-                "2. Add 'ROBOFLOW_API_KEY=your_key' to your .env file.\n"
-                "Skipping Roboflow Staunton download."
+                f"{env_var_name} not configured in .env or environment.\n"
+                f"To download '{self.config.name}' automatically:\n"
+                f"1. Get a free API key at {self.config.fallback_url or 'https://app.roboflow.com'}\n"
+                f"2. Add '{env_var_name}=your_key' to your .env file.\n"
+                f"Skipping {self.config.name} download."
             )
             return target_dir
 
-        url = self.DEFAULT_DATASET_URL.format(api_key=api_key)
-        zip_path = target_dir / "roboflow_staunton.zip"
+        if not self.config.direct_url_template:
+            raise DatasetDownloadError(f"No direct_url_template defined for {self.name}")
 
-        logger.info("=== Downloading Roboflow Staunton Dataset (Direct HTTP Zip) ===")
+        url = self.config.direct_url_template.format(api_key=api_key)
+        archive_name = self.config.archive_filename or f"{self.name}.zip"
+        zip_path = target_dir / archive_name
+
+        logger.info(f"=== Downloading {self.config.name} (Direct HTTP Zip) ===")
         self.download_file(
             url=url,
             dest_path=zip_path,
-            description="Roboflow Staunton YOLOv8 archive",
+            description=f"{self.config.name} archive",
             force=force,
         )
 
@@ -288,35 +311,35 @@ class RoboflowDatasetDownloader(BaseDatasetDownloader):
 class KaggleDatasetDownloader(BaseDatasetDownloader):
     """
     Downloader for Kaggle physical chess datasets.
-    
-    Uses Kaggle credentials (KAGGLE_USERNAME / KAGGLE_KEY) if available.
+    Driven completely by physical_sources.yaml configuration.
     """
 
-    DATASET_SLUG = "kneroma/chess-pieces-detection-image-dataset"
-
-    def __init__(self, config: dict[str, Any] | None = None) -> None:
-        super().__init__(name="kaggle_tripod", config=config)
-
     def download(self, base_output_dir: Path, force: bool = False) -> Path:
-        target_dir = Path(base_output_dir) / "kaggle_tripod"
+        target_dir = Path(base_output_dir) / self.config.target_subdir
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        kaggle_user = os.environ.get("KAGGLE_USERNAME", "").strip()
-        kaggle_key = os.environ.get("KAGGLE_KEY", "").strip()
+        env_vars = self.config.env_vars or ["KAGGLE_USERNAME", "KAGGLE_KEY"]
+        credentials = {var: get_credential_from_env(var) for var in env_vars}
+        has_all_credentials = all(bool(v) for v in credentials.values())
 
-        if not (kaggle_user and kaggle_key):
+        if not has_all_credentials:
             logger.info(
-                "Kaggle API credentials not set (KAGGLE_USERNAME / KAGGLE_KEY). "
-                "Skipping Kaggle tripod dataset download."
+                f"Kaggle API credentials ({', '.join(env_vars)}) not fully configured. "
+                f"Skipping {self.config.name} download. "
+                f"Available at: {self.config.fallback_url or 'https://www.kaggle.com'}"
             )
             return target_dir
+
+        dataset_slug = self.config.dataset_slug
+        if not dataset_slug:
+            raise DatasetDownloadError(f"No dataset_slug configured for {self.name}")
 
         try:
             import kaggle  # type: ignore
 
-            logger.info(f"Downloading Kaggle dataset '{self.DATASET_SLUG}'...")
+            logger.info(f"Downloading Kaggle dataset '{dataset_slug}'...")
             kaggle.api.dataset_download_files(
-                self.DATASET_SLUG,
+                dataset_slug,
                 path=str(target_dir),
                 unzip=True,
                 force=force,
@@ -328,32 +351,77 @@ class KaggleDatasetDownloader(BaseDatasetDownloader):
         return target_dir
 
 
+class GenericDatasetDownloader(BaseDatasetDownloader):
+    """Generic downloader for arbitrary HTTP/HTTPS datasets specified in config."""
+
+    def download(self, base_output_dir: Path, force: bool = False) -> Path:
+        target_dir = Path(base_output_dir) / self.config.target_subdir
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        for file_key, file_spec in self.config.files.items():
+            local_dest = target_dir / file_spec.filename
+            self.download_file(
+                url=file_spec.url,
+                dest_path=local_dest,
+                expected_md5=file_spec.expected_md5,
+                description=file_spec.description or local_dest.name,
+                force=force,
+            )
+            if file_spec.is_archive:
+                extract_target = target_dir / (file_spec.extract_subdir or file_key)
+                self.safe_extract_zip(local_dest, extract_target)
+
+        return target_dir
+
+
 class DatasetRegistry:
     """Registry mapping dataset keys to their respective downloader implementations."""
 
-    _REGISTRY: dict[str, type[BaseDatasetDownloader]] = {
+    _SPECIALIZED_CLASSES: dict[str, type[BaseDatasetDownloader]] = {
         "chessred": ChessReDDownloader,
         "roboflow_staunton": RoboflowDatasetDownloader,
         "kaggle_tripod": KaggleDatasetDownloader,
     }
 
     @classmethod
-    def get_downloader(cls, name: str, config: dict[str, Any] | None = None) -> BaseDatasetDownloader:
-        if name not in cls._REGISTRY:
-            raise KeyError(
-                f"Unknown dataset '{name}'. Available datasets: {list(cls._REGISTRY.keys())}"
-            )
-        return cls._REGISTRY[name](config=config)
+    def load_sources_config(cls, config_path: Path | None = None) -> dict[str, DatasetSourceConfig]:
+        """Load sources specification from YAML configuration (SSOT)."""
+        path = config_path or DEFAULT_SOURCES_CONFIG_PATH
+        if not path.exists():
+            return {}
+
+        with open(path, "r", encoding="utf-8") as f:
+            raw = yaml.safe_load(f) or {}
+
+        configs: dict[str, DatasetSourceConfig] = {}
+        for key, val in raw.items():
+            if isinstance(val, dict):
+                configs[key] = DatasetSourceConfig(**val)
+        return configs
 
     @classmethod
-    def list_available(cls) -> list[str]:
-        return list(cls._REGISTRY.keys())
+    def get_downloader(
+        cls,
+        name: str,
+        config: DatasetSourceConfig | None = None,
+        config_path: Path | None = None,
+    ) -> BaseDatasetDownloader:
+        """
+        Get a fully configured downloader instance by dataset name.
+        """
+        all_configs = cls.load_sources_config(config_path)
+
+        if config is None:
+            if name not in all_configs:
+                raise KeyError(
+                    f"Unknown dataset '{name}'. Available configured datasets: {list(all_configs.keys())}"
+                )
+            config = all_configs[name]
+
+        downloader_cls = cls._SPECIALIZED_CLASSES.get(name, GenericDatasetDownloader)
+        return downloader_cls(name=name, config=config)
 
     @classmethod
-    def load_sources_config(cls, config_path: Path | None = None) -> dict[str, Any]:
-        """Load sources specification from configs/dataset/physical_sources.yaml if present."""
-        path = config_path or Path("configs/dataset/physical_sources.yaml")
-        if path.exists():
-            with open(path, "r", encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}
-        return {}
+    def list_available(cls, config_path: Path | None = None) -> list[str]:
+        configs = cls.load_sources_config(config_path)
+        return list(configs.keys()) if configs else list(cls._SPECIALIZED_CLASSES.keys())
