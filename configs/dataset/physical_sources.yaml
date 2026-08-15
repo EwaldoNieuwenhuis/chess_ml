@@ -1,0 +1,51 @@
+# =============================================================================
+# Physical Chess Dataset Sources Specification (Single Source of Truth)
+# =============================================================================
+# Declarative manifest for downloading and verifying physical 3D chess datasets.
+
+chessred:
+  name: "Chess Recognition Dataset (ChessReD)"
+  publisher: "4TU.ResearchData"
+  doi: "10.4121/99b5c721-280b-450b-b058-b2900b69a90f.v2"
+  license: "CC BY-NC-SA 4.0"
+  target_subdir: "chessred"
+  auth_required: false
+  files:
+    annotations:
+      filename: "annotations.json"
+      url: "https://data.4tu.nl/file/99b5c721-280b-450b-b058-b2900b69a90f/3cae6364-daca-4967-b426-1e4b68cdb64c"
+      is_archive: false
+      expected_md5: "d34bca5ad46ec7a8df96a1d3c36784f3"
+      description: "Official COCO-style piece bounding boxes and 4-corner keypoints (10,800 images, 223k boxes)"
+    sample_images:
+      filename: "chessred_repo.zip"
+      url: "https://github.com/tmasouris/end-to-end-chess-recognition/archive/refs/heads/main.zip"
+      is_archive: true
+      extract_subdir: "repo_assets"
+      description: "ChessReD repository sample images and benchmark evaluation tools"
+
+roboflow_staunton:
+  name: "Roboflow Chess Pieces (Staunton)"
+  publisher: "Roboflow Universe (Joseph Nelson)"
+  license: "CC BY 4.0"
+  target_subdir: "roboflow_staunton"
+  auth_required: true
+  env_var: "ROBOFLOW_API_KEY"
+  direct_url_template: "https://universe.roboflow.com/ds/8N99xYwQ0L?key={api_key}"
+  fallback_url: "https://universe.roboflow.com/joseph-nelson/chess-pieces-new"
+  archive_filename: "roboflow_staunton.zip"
+  is_archive: true
+  description: "292 tripod photos with 2,894 YOLO-format bounding boxes for 12 Staunton pieces"
+
+kaggle_tripod:
+  name: "Kaggle Chess Pieces Detection (Tripod Dataset)"
+  publisher: "Kaggle (kneroma)"
+  license: "CC0: Public Domain"
+  target_subdir: "kaggle_tripod"
+  auth_required: true
+  dataset_slug: "kneroma/chess-pieces-detection-image-dataset"
+  env_vars:
+    - "KAGGLE_USERNAME"
+    - "KAGGLE_KEY"
+  fallback_url: "https://www.kaggle.com/datasets/kneroma/chess-pieces-detection-image-dataset"
+  description: "600+ physical chessboard images from fixed angle with Pascal VOC & YOLO annotations"

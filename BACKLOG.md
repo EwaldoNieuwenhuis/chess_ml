@@ -122,7 +122,7 @@ flowchart TD
     - *Comparative Advantage:* Object detection handles overlapping pieces in 3D angled shots better; 64-square classification is faster and simpler for perfectly rectified 2D digital boards. We should evaluate if curated datasets provide both formats or if bounding boxes give the most versatile single-model solution.
 
 ### 🔹 Feature 2.2: Automated Dataset Download & Ingestion
-- [ ] **US-2.2.1: Physical Dataset Downloader (ChessReD & Real-Life Photos)**
+- [x] **US-2.2.1: Physical Dataset Downloader (ChessReD & Real-Life Photos)**
   - **Description:** Create an automated ingestion pipeline for ChessReD (10,800+ real-world photos) and curated physical board datasets from Kaggle / Roboflow.
   - **Acceptance Criteria:**
     - Script `scripts/download_physical_datasets.py` fetches and extracts raw images and annotations to `data/raw/physical/`.
