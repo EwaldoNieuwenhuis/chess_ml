@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import os
+import sys
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -22,10 +23,12 @@ from src.dataset import (
     DatasetRegistry,
     DatasetSourceConfig,
     GenericDatasetDownloader,
+    HuggingFaceDatasetDownloader,
     KaggleDatasetDownloader,
     RoboflowDatasetDownloader,
     get_credential_from_env,
 )
+
 
 
 class DummyDownloader(BaseDatasetDownloader):
@@ -256,3 +259,170 @@ class TestKaggleDatasetDownloader:
         with patch.dict(os.environ, {}, clear=True):
             result_dir = downloader.download(base_output_dir=tmp_path)
             assert result_dir.exists()
+
+
+class TestHuggingFaceDatasetDownloader:
+    def test_huggingface_download_flow(self, tmp_path: Path) -> None:
+        config = DatasetSourceConfig(
+            name="HuggingFace Digital Test",
+            target_subdir="hf_digital",
+            files={
+                "data_yaml": DatasetFileConfig(
+                    filename="data.yaml",
+                    url="https://huggingface.co/datasets/example/resolve/main/data.yaml",
+                ),
+                "part1": DatasetFileConfig(
+                    filename="part1.zip",
+                    url="https://huggingface.co/datasets/example/resolve/main/part1.zip",
+                    is_archive=True,
+                    extract_subdir="",
+                ),
+            },
+        )
+        downloader = HuggingFaceDatasetDownloader(name="huggingface_digital", config=config)
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w") as zf:
+            zf.writestr("images/train/img001.png", b"fake-png-data")
+            zf.writestr("labels/train/img001.txt", "0 0.5 0.5 0.1 0.1")
+        fake_zip = zip_buf.getvalue()
+
+        def fake_download_file(url: str, dest_path: Path, **kwargs: object) -> Path:
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            if "data.yaml" in str(dest_path):
+                dest_path.write_text("names: [white_pawn, white_knight]\nnc: 2", encoding="utf-8")
+            else:
+                dest_path.write_bytes(fake_zip)
+            return dest_path
+
+        with patch.object(downloader, "download_file", side_effect=fake_download_file):
+            result_dir = downloader.download(base_output_dir=tmp_path)
+
+        assert (result_dir / "data.yaml").exists()
+        assert (result_dir / "images" / "train" / "img001.png").exists()
+        assert (result_dir / "labels" / "train" / "img001.txt").exists()
+
+    def test_huggingface_with_hf_token(self, tmp_path: Path) -> None:
+        config = DatasetSourceConfig(
+            name="HuggingFace Auth Test",
+            target_subdir="hf_auth",
+            files={
+                "info": DatasetFileConfig(
+                    filename="info.txt",
+                    url="https://huggingface.co/datasets/example/info.txt",
+                )
+            },
+        )
+        downloader = HuggingFaceDatasetDownloader(name="huggingface_digital", config=config)
+
+        captured_headers = {}
+
+        def fake_download_file(url: str, dest_path: Path, **kwargs: object) -> Path:
+            captured_headers.update(kwargs.get("extra_headers") or {})
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            dest_path.write_text("ok", encoding="utf-8")
+            return dest_path
+
+        with patch.dict(os.environ, {"HF_TOKEN": "hf_test_token_xyz"}):
+            with patch.object(downloader, "download_file", side_effect=fake_download_file):
+                downloader.download(base_output_dir=tmp_path)
+
+        assert captured_headers.get("Authorization") == "Bearer hf_test_token_xyz"
+
+
+class TestDigitalSourcesConfig:
+    def test_load_digital_sources_config(self) -> None:
+        configs = DatasetRegistry.load_sources_config(category="digital")
+        assert "huggingface_digital" in configs
+        assert "roboflow_chess_com" in configs
+        assert "roboflow_lichess" in configs
+
+        hf = configs["huggingface_digital"]
+        assert hf.target_subdir == "huggingface_digital"
+        assert "part1" in hf.files
+        assert "data_yaml" in hf.files
+        assert not hf.auth_required
+
+    def test_registry_category_filtering(self) -> None:
+        physical = DatasetRegistry.list_physical()
+        digital = DatasetRegistry.list_digital()
+        all_available = DatasetRegistry.list_available()
+
+        assert "chessred" in physical
+        assert "huggingface_digital" not in physical
+
+        assert "huggingface_digital" in digital
+        assert "chessred" not in digital
+
+        assert "chessred" in all_available
+        assert "huggingface_digital" in all_available
+
+    def test_registry_get_digital_downloader(self) -> None:
+        downloader = DatasetRegistry.get_downloader("huggingface_digital")
+        assert isinstance(downloader, HuggingFaceDatasetDownloader)
+
+        roboflow_downloader = DatasetRegistry.get_downloader("roboflow_chess_com")
+        assert isinstance(roboflow_downloader, RoboflowDatasetDownloader)
+
+
+class TestCLIScripts:
+    def test_digital_cli_verify_only(self, tmp_path: Path) -> None:
+        import subprocess
+
+        cmd = [
+            sys.executable,
+            "scripts/download_digital_datasets.py",
+            "--verify-only",
+            "--output-dir",
+            str(tmp_path),
+        ]
+        res = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        assert res.returncode == 0
+        assert "Digital Dataset Local Verification Status" in res.stdout
+
+    def test_digital_cli_help(self) -> None:
+        import subprocess
+
+        cmd = [sys.executable, "scripts/download_digital_datasets.py", "--help"]
+        res = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        assert res.returncode == 0
+        assert "--verify-only" in res.stdout
+        assert "huggingface_digital" in res.stdout
+
+    def test_physical_cli_verify_only(self, tmp_path: Path) -> None:
+        import subprocess
+
+        cmd = [
+            sys.executable,
+            "scripts/download_physical_datasets.py",
+            "--verify-only",
+            "--output-dir",
+            str(tmp_path),
+        ]
+        res = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        assert res.returncode == 0
+        assert "Physical Dataset Local Verification Status" in res.stdout
+
+
+

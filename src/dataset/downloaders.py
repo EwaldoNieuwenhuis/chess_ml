@@ -33,7 +33,9 @@ logger = logging.getLogger("chess_ml.dataset")
 
 # Standard HTTP headers to avoid 403 Forbidden on academic/cloud CDNs
 DEFAULT_USER_AGENT = "ChessML-Pipeline/0.1.0 (+https://github.com/EwaldoNieuwenhuis/chess_ml)"
-DEFAULT_SOURCES_CONFIG_PATH = Path("configs/dataset/physical_sources.yaml")
+DEFAULT_PHYSICAL_CONFIG_PATH = Path("configs/dataset/physical_sources.yaml")
+DEFAULT_DIGITAL_CONFIG_PATH = Path("configs/dataset/digital_sources.yaml")
+DEFAULT_SOURCES_CONFIG_PATH = DEFAULT_PHYSICAL_CONFIG_PATH
 
 
 class DatasetDownloadError(Exception):
@@ -62,7 +64,7 @@ class DatasetSourceConfig(BaseModel):
     publisher: str = Field(default="", description="Publisher or repository source")
     doi: str | None = Field(default=None, description="DOI reference if academic")
     license: str = Field(default="Open", description="Dataset license identifier")
-    target_subdir: str = Field(..., description="Subdirectory under data/raw/physical/")
+    target_subdir: str = Field(..., description="Subdirectory under data/raw/physical/ or data/raw/digital/")
     auth_required: bool = Field(default=False, description="Whether API key authentication is needed")
     env_var: str | None = Field(default=None, description="Primary environment variable for API key")
     env_vars: list[str] = Field(default_factory=list, description="Multiple environment variables if needed")
@@ -118,6 +120,7 @@ class BaseDatasetDownloader(ABC):
         force: bool = False,
         chunk_size: int = 65536,
         user_agent: str = DEFAULT_USER_AGENT,
+        extra_headers: dict[str, str] | None = None,
         progress_callback: Callable[[int, int], None] | None = None,
     ) -> Path:
         """
@@ -132,7 +135,11 @@ class BaseDatasetDownloader(ABC):
                 return dest_path
 
         temp_path = dest_path.with_suffix(dest_path.suffix + ".tmp")
-        req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+        headers = {"User-Agent": user_agent}
+        if extra_headers:
+            headers.update(extra_headers)
+
+        req = urllib.request.Request(url, headers=headers)
         ctx = ssl.create_default_context()
 
         try:
@@ -266,10 +273,43 @@ class ChessReDDownloader(BaseDatasetDownloader):
         return target_dir
 
 
+class HuggingFaceDatasetDownloader(BaseDatasetDownloader):
+    """
+    Downloader for Hugging Face digital/hybrid chess datasets.
+    Driven completely by declarative YAML configuration (e.g. digital_sources.yaml).
+    """
+
+    def download(self, base_output_dir: Path, force: bool = False) -> Path:
+        target_dir = Path(base_output_dir) / self.config.target_subdir
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        hf_token = get_credential_from_env("HF_TOKEN") or get_credential_from_env("HUGGINGFACE_TOKEN")
+        headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else None
+
+        for file_key, file_spec in self.config.files.items():
+            logger.info(f"=== Fetching {self.config.name} [{file_key}] ===")
+            local_dest = target_dir / file_spec.filename
+
+            self.download_file(
+                url=file_spec.url,
+                dest_path=local_dest,
+                expected_md5=file_spec.expected_md5,
+                description=file_spec.description or local_dest.name,
+                force=force,
+                extra_headers=headers,
+            )
+
+            if file_spec.is_archive:
+                extract_target = (target_dir / file_spec.extract_subdir) if file_spec.extract_subdir else target_dir
+                self.safe_extract_zip(local_dest, extract_target)
+
+        return target_dir
+
+
 class RoboflowDatasetDownloader(BaseDatasetDownloader):
     """
-    Downloader for Roboflow Universe physical chess datasets.
-    Driven completely by physical_sources.yaml configuration.
+    Downloader for Roboflow Universe physical and digital chess datasets.
+    Driven completely by declarative YAML configuration.
     """
 
     def download(self, base_output_dir: Path, force: bool = False) -> Path:
@@ -310,8 +350,8 @@ class RoboflowDatasetDownloader(BaseDatasetDownloader):
 
 class KaggleDatasetDownloader(BaseDatasetDownloader):
     """
-    Downloader for Kaggle physical chess datasets.
-    Driven completely by physical_sources.yaml configuration.
+    Downloader for Kaggle physical and digital chess datasets.
+    Driven completely by declarative YAML configuration.
     """
 
     def download(self, base_output_dir: Path, force: bool = False) -> Path:
@@ -381,22 +421,42 @@ class DatasetRegistry:
         "chessred": ChessReDDownloader,
         "roboflow_staunton": RoboflowDatasetDownloader,
         "kaggle_tripod": KaggleDatasetDownloader,
+        "huggingface_digital": HuggingFaceDatasetDownloader,
+        "roboflow_chess_com": RoboflowDatasetDownloader,
+        "roboflow_lichess": RoboflowDatasetDownloader,
     }
 
     @classmethod
-    def load_sources_config(cls, config_path: Path | None = None) -> dict[str, DatasetSourceConfig]:
-        """Load sources specification from YAML configuration (SSOT)."""
-        path = config_path or DEFAULT_SOURCES_CONFIG_PATH
-        if not path.exists():
-            return {}
+    def load_sources_config(
+        cls,
+        config_path: Path | None = None,
+        category: str = "all",
+    ) -> dict[str, DatasetSourceConfig]:
+        """
+        Load sources specification from YAML configuration (SSOT).
 
-        with open(path, "r", encoding="utf-8") as f:
-            raw = yaml.safe_load(f) or {}
+        Args:
+            config_path: Specific YAML file path. If None, resolves by category.
+            category: 'physical', 'digital', or 'all' (merges both).
+        """
+        if config_path is not None:
+            paths = [config_path]
+        elif category == "physical":
+            paths = [DEFAULT_PHYSICAL_CONFIG_PATH]
+        elif category == "digital":
+            paths = [DEFAULT_DIGITAL_CONFIG_PATH]
+        else:
+            paths = [DEFAULT_PHYSICAL_CONFIG_PATH, DEFAULT_DIGITAL_CONFIG_PATH]
 
         configs: dict[str, DatasetSourceConfig] = {}
-        for key, val in raw.items():
-            if isinstance(val, dict):
-                configs[key] = DatasetSourceConfig(**val)
+        for path in paths:
+            if not path.exists():
+                continue
+            with open(path, "r", encoding="utf-8") as f:
+                raw = yaml.safe_load(f) or {}
+            for key, val in raw.items():
+                if isinstance(val, dict):
+                    configs[key] = DatasetSourceConfig(**val)
         return configs
 
     @classmethod
@@ -405,11 +465,12 @@ class DatasetRegistry:
         name: str,
         config: DatasetSourceConfig | None = None,
         config_path: Path | None = None,
+        category: str = "all",
     ) -> BaseDatasetDownloader:
         """
         Get a fully configured downloader instance by dataset name.
         """
-        all_configs = cls.load_sources_config(config_path)
+        all_configs = cls.load_sources_config(config_path=config_path, category=category)
 
         if config is None:
             if name not in all_configs:
@@ -418,10 +479,27 @@ class DatasetRegistry:
                 )
             config = all_configs[name]
 
-        downloader_cls = cls._SPECIALIZED_CLASSES.get(name, GenericDatasetDownloader)
+        downloader_cls = cls._SPECIALIZED_CLASSES.get(name)
+        if downloader_cls is None:
+            if "huggingface.co" in (config.fallback_url or "") or (
+                config.files and any("huggingface.co" in f.url for f in config.files.values())
+            ):
+                downloader_cls = HuggingFaceDatasetDownloader
+            else:
+                downloader_cls = GenericDatasetDownloader
+
         return downloader_cls(name=name, config=config)
 
     @classmethod
-    def list_available(cls, config_path: Path | None = None) -> list[str]:
-        configs = cls.load_sources_config(config_path)
+    def list_available(cls, config_path: Path | None = None, category: str = "all") -> list[str]:
+        configs = cls.load_sources_config(config_path=config_path, category=category)
         return list(configs.keys()) if configs else list(cls._SPECIALIZED_CLASSES.keys())
+
+    @classmethod
+    def list_physical(cls) -> list[str]:
+        return cls.list_available(category="physical")
+
+    @classmethod
+    def list_digital(cls) -> list[str]:
+        return cls.list_available(category="digital")
+

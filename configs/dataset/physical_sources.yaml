@@ -17,6 +17,13 @@ chessred:
       is_archive: false
       expected_md5: "d34bca5ad46ec7a8df96a1d3c36784f3"
       description: "Official COCO-style piece bounding boxes and 4-corner keypoints (10,800 images, 223k boxes)"
+    images:
+      filename: "images.zip"
+      url: "https://data.4tu.nl/file/99b5c721-280b-450b-b058-b2900b69a90f/6329e969-616e-48e3-b893-a0379d1c15ba"
+      is_archive: true
+      expected_md5: "32e23ed535239dc517a6499762d9847e"
+      extract_subdir: "images"
+      description: "10,800 full multi-angle physical chessboard photographs"
     sample_images:
       filename: "chessred_repo.zip"
       url: "https://github.com/tmasouris/end-to-end-chess-recognition/archive/refs/heads/main.zip"

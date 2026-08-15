@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-CLI Tool: Download and Ingest Physical Chess Datasets.
+CLI Tool: Download and Ingest Digital 2D Chess Datasets.
 
 Usage:
-    uv run python scripts/download_physical_datasets.py --dataset chessred
-    uv run python scripts/download_physical_datasets.py --dataset all
-    uv run python scripts/download_physical_datasets.py --dataset all --force
-    uv run python scripts/download_physical_datasets.py --verify-only
+    uv run python scripts/download_digital_datasets.py --dataset huggingface_digital
+    uv run python scripts/download_digital_datasets.py --dataset all
+    uv run python scripts/download_digital_datasets.py --dataset all --force
+    uv run python scripts/download_digital_datasets.py --verify-only
 """
 
 from __future__ import annotations
@@ -43,22 +43,22 @@ logger = logging.getLogger("chess_ml.cli")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="♟️ Ingest physical chess datasets (ChessReD, Roboflow, Kaggle) into data/raw/physical/",
+        description="♟️ Ingest digital 2D chess datasets (Hugging Face, Chess.com, Lichess) into data/raw/digital/",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--dataset",
         "-d",
-        choices=["all", "chessred", "roboflow_staunton", "kaggle_tripod"],
+        choices=["all", "huggingface_digital", "roboflow_chess_com", "roboflow_lichess"],
         default="all",
-        help="Target dataset to download or 'all' for complete ingestion.",
+        help="Target digital dataset to download or 'all' for complete digital ingestion.",
     )
     parser.add_argument(
         "--output-dir",
         "-o",
         type=Path,
-        default=Path("data/raw/physical"),
-        help="Destination directory for raw physical datasets.",
+        default=Path("data/raw/digital"),
+        help="Destination directory for raw digital datasets.",
     )
     parser.add_argument(
         "--force",
@@ -76,7 +76,7 @@ def parse_args() -> argparse.Namespace:
 
 def display_banner(output_dir: Path, target: str) -> None:
     banner_text = (
-        f"[bold cyan]♟️ Chess ML - Physical Dataset Ingestion Engine[/bold cyan]\n"
+        f"[bold cyan]♟️ Chess ML - Digital 2D Dataset Ingestion Engine[/bold cyan]\n"
         f"[white]Target Dataset :[/white] [bold yellow]{target}[/bold yellow]\n"
         f"[white]Output Path    :[/white] [green]{output_dir.resolve()}[/green]"
     )
@@ -89,7 +89,7 @@ def verify_dataset_directory(target_dir: Path) -> dict[str, int]:
         return {"images": 0, "annotations": 0, "total_files": 0}
 
     image_exts = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-    annot_exts = {".json", ".xml", ".txt"}
+    annot_exts = {".json", ".xml", ".txt", ".yaml", ".yml"}
 
     images = 0
     annotations = 0
@@ -113,12 +113,12 @@ def main() -> int:
 
     display_banner(output_dir, args.dataset)
 
-    available = DatasetRegistry.list_physical()
+    available = DatasetRegistry.list_digital()
     targets = available if args.dataset == "all" else [args.dataset]
 
     if args.verify_only:
-        console.print("\n[bold blue]🔍 Verifying existing physical datasets...[/bold blue]\n")
-        table = Table(title="Physical Dataset Local Verification Status")
+        console.print("\n[bold blue]🔍 Verifying existing digital datasets...[/bold blue]\n")
+        table = Table(title="Digital Dataset Local Verification Status")
         table.add_column("Dataset Key", style="cyan", no_wrap=True)
         table.add_column("Local Path", style="dim")
         table.add_column("Images", justify="right", style="green")
@@ -140,13 +140,13 @@ def main() -> int:
         console.print(table)
         return 0
 
-    console.print(f"\n[bold green]🚀 Initiating ingestion for {len(targets)} dataset(s)...[/bold green]\n")
+    console.print(f"\n[bold green]🚀 Initiating ingestion for {len(targets)} digital dataset(s)...[/bold green]\n")
     results = {}
 
     for key in targets:
         console.print(f"[bold cyan]>>> Processing dataset: [yellow]{key}[/yellow] <<<[/bold cyan]")
         try:
-            downloader = DatasetRegistry.get_downloader(key, category="physical")
+            downloader = DatasetRegistry.get_downloader(key, category="digital")
             result_path = downloader.download(base_output_dir=output_dir, force=args.force)
             stats = verify_dataset_directory(result_path)
             results[key] = {
@@ -164,7 +164,7 @@ def main() -> int:
             console.print(f"[bold red]✗ Failed {key}: {e}[/bold red]\n")
 
     # Final summary table
-    summary_table = Table(title="Physical Dataset Ingestion Summary")
+    summary_table = Table(title="Digital Dataset Ingestion Summary")
     summary_table.add_column("Dataset", style="cyan")
     summary_table.add_column("Status", style="bold")
     summary_table.add_column("Total Files", justify="right")

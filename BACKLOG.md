@@ -128,10 +128,11 @@ flowchart TD
     - Script `scripts/download_physical_datasets.py` fetches and extracts raw images and annotations to `data/raw/physical/`.
     - Handles authentication / API keys safely (e.g., Kaggle CLI, Roboflow Python SDK).
 
-- [ ] **US-2.2.2: Digital 2D App Dataset Downloader (Chess.com / Lichess / Other Apps)**
+- [x] **US-2.2.2: Digital 2D App Dataset Downloader (Chess.com / Lichess / Other Apps)**
   - **Description:** Create an automated ingestion script for verified open-source digital 2D screenshot datasets (Chess.com themes, Lichess themes, custom digital apps).
   - **Acceptance Criteria:**
     - Script `scripts/download_digital_datasets.py` fetches and extracts digital datasets to `data/raw/digital/`.
+
 
 ### 🔹 Feature 2.3: Label Standardization & Unified Hybrid Dataset Builder
 - [ ] **US-2.3.1: Canonical Class Name & Coordinate Standardizer**

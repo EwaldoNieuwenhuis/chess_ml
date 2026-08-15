@@ -1,0 +1,57 @@
+# =============================================================================
+# Digital 2D Chess Dataset Sources Specification (Single Source of Truth)
+# =============================================================================
+# Declarative manifest for downloading and verifying digital 2D chess datasets.
+
+huggingface_digital:
+  name: "Hugging Face Chessboard Digital Images (MohammedHemed)"
+  publisher: "Hugging Face (MohammedHemed)"
+  license: "Apache 2.0"
+  target_subdir: "huggingface_digital"
+  auth_required: false
+  fallback_url: "https://huggingface.co/datasets/MohammedHemed/Chessboard-digital-images_with_fen"
+  description: "64,386 digital chessboard screenshots with YOLO bounding boxes and FEN labels across multiple themes."
+  files:
+    part1:
+      filename: "chess_yolo_data-20250419T135412Z-001.zip"
+      url: "https://huggingface.co/datasets/MohammedHemed/Chessboard-digital-images_with_fen/resolve/main/chess_yolo_data-20250419T135412Z-001.zip"
+      is_archive: true
+      extract_subdir: ""
+      description: "YOLO training/validation images and labels archive part 1"
+    part2:
+      filename: "chess_yolo_data-20250419T135412Z-002.zip"
+      url: "https://huggingface.co/datasets/MohammedHemed/Chessboard-digital-images_with_fen/resolve/main/chess_yolo_data-20250419T135412Z-002.zip"
+      is_archive: true
+      extract_subdir: ""
+      description: "YOLO training/validation images and labels archive part 2"
+    data_yaml:
+      filename: "data.yaml"
+      url: "https://huggingface.co/datasets/MohammedHemed/Chessboard-digital-images_with_fen/resolve/main/data.yaml"
+      is_archive: false
+      description: "Dataset YAML descriptor with class names and dataset paths"
+
+roboflow_chess_com:
+  name: "Roboflow Chess.com Pieces (Neo/Classic themes)"
+  publisher: "Roboflow Universe"
+  license: "CC BY 4.0"
+  target_subdir: "roboflow_chess_com"
+  auth_required: true
+  env_var: "ROBOFLOW_API_KEY"
+  direct_url_template: "https://universe.roboflow.com/ds/chess-com-pieces?key={api_key}"
+  fallback_url: "https://universe.roboflow.com/search?q=chess.com"
+  archive_filename: "roboflow_chess_com.zip"
+  is_archive: true
+  description: "Chess.com UI screenshots and digital board themes with YOLO bounding box annotations"
+
+roboflow_lichess:
+  name: "Roboflow Lichess 2D Piece Detection (cburnett/themes)"
+  publisher: "Roboflow Universe"
+  license: "CC BY 4.0"
+  target_subdir: "roboflow_lichess"
+  auth_required: true
+  env_var: "ROBOFLOW_API_KEY"
+  direct_url_template: "https://universe.roboflow.com/ds/lichess-piece-detection-2d?key={api_key}"
+  fallback_url: "https://universe.roboflow.com/search?q=lichess"
+  archive_filename: "roboflow_lichess.zip"
+  is_archive: true
+  description: "Lichess digital board screenshots with cburnett piece style and board colorways"
