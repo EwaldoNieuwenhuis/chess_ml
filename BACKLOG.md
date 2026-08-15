@@ -142,10 +142,11 @@ flowchart TD
     - Standardizes all bounding boxes to normalized YOLO format (`class_id x_center y_center width height`).
     - Enforces epsilon boundary clamping ($[-10^{-5}, 1.0 + 10^{-5}] \to [0.0, 1.0]$) to eliminate floating-point precision drift.
     - Validates coordinates ($0.0 \le x, y, w, h \le 1.0$) and removes corrupted, zero-area, or degenerate annotations ($w < 0.005$ or $h < 0.005$).
-    - Groups classes numerically: $0..5$ White (`white_pawn`..`white_king`), $6..11$ Black (`black_pawn`..`black_king`), enabling direct `class_id < 6` color checks and `class_id % 6` `python-chess` piece mappings.
-  - 💡 **Architectural Notes & Alternatives (See ADR-008):**
-    - *Class Ontology (12 vs. 13 Classes):* 12 piece classes is optimal for bounding box object detection (YOLOv8/11/RT-DETR). The background is implicitly modeled as negative samples; injecting an explicit `empty_square` bounding box class causes severe anchor clutter (32+ overlapping boxes on empty tiles) and degrades NMS. The 13-class paradigm is used strictly in 64-patch tile classifiers (e.g., ChessCog, LiveChess2FEN), not object detectors.
-    - *Decoupled Board Corners:* Board corners are excluded from the piece detector bounding boxes and handled by dedicated geometric homography / YOLO-Pose keypoints (EPIC-03), avoiding loose corner boxes that lack sub-pixel vertex precision.
+    - Groups classes numerically: $0..5$ White (`white_pawn`..`white_king`), $6..11$ Black (`black_pawn`..`black_king`), enabling direct $O(1)$ `class_id < 6` color checks and `class_id % 6` `python-chess` piece mappings.
+  - 💡 **Architectural Notes & Alternatives (See ADR-008 & 12+ Research Citations):**
+    - *Class Ontology (12 vs. 13 Classes):* 12 piece classes is verified as optimal for bounding box object detection (YOLOv8/11/12/26/RT-DETR). The background is implicitly modeled as negative space; injecting an explicit `empty_square` bounding box class causes severe anchor clutter (32+ overlapping boxes on empty tiles) and degrades NMS. The 13-class paradigm is used strictly in 64-patch tile classifiers (e.g., ChessCog [MDPI 2021], LiveChess2FEN [2020]), not object detectors.
+    - *Negative Samples via 0-Byte Labels:* In compliance with Ultralytics YOLO guidelines, empty board images are supplied with 0-byte `.txt` files in `labels/` to train background confidence without dummy coordinates.
+    - *Decoupled Board Corners:* Board corners are excluded from the piece detector bounding boxes and handled by dedicated geometric homography / YOLO-Pose keypoints (EPIC-03 / HomoCorner-Net [SPIE 2024]), avoiding loose corner boxes that lack sub-pixel vertex precision.
     - *Parallax-Free Anchoring:* Standardizes bounding boxes around full visible piece bodies, while downstream coordinate mapping (EPIC-05) uses bottom-center base contact points $(x_c, y_c + h/2)$ to eliminate perspective tilt errors for tall pieces.
 
 - [ ] **US-2.3.2: Hybrid Dataset Merger, Deduplication & YOLO Splitter**
@@ -155,6 +156,20 @@ flowchart TD
     - Generates `data/hybrid_chess/data.yaml` compatible with Ultralytics YOLO with canonical 12 class names.
     - Includes negative samples (empty background boards) with 0-byte `.txt` files to suppress false positive detections on empty squares.
     - Script `scripts/visualize_hybrid_dataset.py` creates sample overlays for visual QA of both digital and physical samples.
+
+- [ ] **US-2.3.3: Automated Dataset Integrity & Corruption Audit Tool**
+  - **Description:** Implement an automated audit and validation tool (`scripts/audit_standardized_dataset.py`) to verify 100% of `.txt` annotations in `data/standardized/` and `data/hybrid_chess/` prior to training.
+  - **Acceptance Criteria:**
+    - Scans all annotation files and asserts: $0 \le class\_id \le 11$, all coordinates $\in [0.0, 1.0]$, no NaN/inf values, and $w, h > 0$.
+    - Verifies parallel existence of image and label pairs, and verifies that empty negative sample images possess 0-byte `.txt` files.
+    - Computes and logs class balance distribution histograms and degenerate box rejection rates.
+    - Returns exit code 0 on clean dataset, non-zero on data corruption (usable in automated CI).
+
+- [ ] **US-2.3.4: Perspective Parallax & Contact Footprint Diagnostic Visualizer**
+  - **Description:** Create a diagnostic tool (`scripts/verify_contact_anchors.py`) that renders side-by-side comparisons of full bounding boxes, centroids, and bottom-center base contact anchors $(x_c, y_c + h/2)$ mapped onto rectified boards.
+  - **Acceptance Criteria:**
+    - Renders color-coded overlays demonstrating that the bottom-center contact anchor correctly locates tall pieces (Kings, Queens, Rooks) on their physical square footprints across $30^\circ\text{--}75^\circ$ angled photographs.
+    - Outputs diagnostic inspection images to `data/diagnostics/parallax_verification/`.
 
 ---
 
@@ -177,7 +192,7 @@ flowchart TD
     end
 
     subgraph Physical Branch
-        P_Branch --> P1[Board Corner Localization: Hough / Contours / Keypoints]
+        P_Branch --> P1[Board Corner Localization: Hough / Contours / YOLO-Pose Keypoints]
         P1 --> P2[Top-Left, Top-Right, Bottom-Right, Bottom-Left Ordering]
         P2 --> P3[cv2.warpPerspective Homography Transformation]
         P3 --> P4[Generate 800x800 Rectified Top-Down Plane]
@@ -220,8 +235,8 @@ flowchart TD
     - Provides coordinate lookup matrix for rapid bounding-box-to-square mapping.
 
 ### 🔹 Feature 3.3: Physical Board Corner Detection & Homography
-- [ ] **US-3.3.1: 4-Corner Localization for Angled Boards**
-  - **Description:** Detect the 4 outermost corners of a physical chessboard using Hough Line intersection / contour quad-approximation / keypoint detection.
+- [ ] **US-3.3.1: 4-Corner Localization for Angled Boards (Classical OpenCV)**
+  - **Description:** Detect the 4 outermost corners of a physical chessboard using Hough Line intersection / contour quad-approximation (`cv2.approxPolyDP`).
   - **Acceptance Criteria:**
     - Accurately identifies Top-Left, Top-Right, Bottom-Right, Bottom-Left board corners under tilts up to 60 degrees.
   - 💡 **Architectural Notes & Alternatives:**
@@ -233,6 +248,12 @@ flowchart TD
   - **Description:** Compute homography matrix and warp the detected quad into an undistorted top-down square ($800 \times 800$ px).
   - **Acceptance Criteria:**
     - Produces rectified top-down planar image with aligned grid lines.
+
+- [ ] **US-3.3.3: Deep Learning 4-Corner Keypoint Detector (YOLO-Pose / Heatmap Prior)**
+  - **Description:** Train and integrate a lightweight 4-point keypoint regression model (e.g., YOLO11-Pose or HomoCorner-Net prior) for robust sub-pixel corner extraction on physical boards with occluded corners, hands in frame, or low-contrast borders.
+  - **Acceptance Criteria:**
+    - Regresses 4 corner coordinates with sub-pixel vertex precision (reprojection error $< 2.0\text{ px}$).
+    - Functions as an automated fallback or ensemble partner to classical OpenCV corner detection when contour quad fitting confidence is low.
 
 ---
 

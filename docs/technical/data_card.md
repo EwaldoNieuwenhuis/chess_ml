@@ -28,4 +28,7 @@ All datasets are normalized to standard YOLO format:
   * Black: `6: black_pawn`, `7: black_knight`, `8: black_bishop`, `9: black_rook`, `10: black_queen`, `11: black_king`
 * **Format:** `class_id x_center y_center width height` (normalized $0.0 \le x, y, w, h \le 1.0$).
 * **Validation & Clamping:** Epsilon boundary clamping ($[-10^{-5}, 1.0 + 10^{-5}] \to [0.0, 1.0]$) and degenerate box filtering ($w, h \ge 0.005$).
+* **Negative Samples:** Empty background images and empty boards are paired with **0-byte `.txt` label files** in accordance with the official Ultralytics dataset standard, suppressing false-positive piece detections without anchor clutter.
+* **Footprint Anchoring:** Standardizes annotations on full visible piece bounding boxes, while downstream homography mapping evaluates the bottom-center base contact $(x_c, y_c + h/2)$ to eliminate perspective parallax misassignment on tall pieces.
+
 

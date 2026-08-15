@@ -129,28 +129,36 @@ Target **PyTorch 2.11+ compiled with CUDA 12.8 (`cu128`)** as the primary GPU di
 
 ### **Status:** Accepted
 ### **Context:**
-Ingesting disparate chess datasets (Roboflow Universe, Kaggle, ChessReD, Hugging Face) introduces conflicting class ontologies (e.g. `['wP', 'bK']`, `['white-queen', 'black-rook']`, `['W_P', 'B_K']`, 0-indexed vs 1-indexed integers). Additionally, different architectural paradigms exist across literature:
-1. **12 Classes vs. 13 Classes**: Standard object detectors treat background as implicit negative samples, whereas 64-patch classifiers (e.g. ChessCog, LiveChess2FEN) require an explicit 13th `empty_square` class.
-2. **Board Corner Representation**: Some toy datasets represent corners as a 13th bounding box class, which fails to provide sub-pixel vertex precision needed for homography.
-3. **Bounding Box Validation & Precision Drift**: Raw datasets often contain floating-point precision drift (e.g. $1.000002$ or $-0.000001$), zero-area boxes, or truncated out-of-frame annotations that cause training crashes in Ultralytics YOLO.
-4. **Perspective Parallax**: Angled camera views cause tall pieces (King, Queen) to lean into background squares if centroid $(x_c, y_c)$ is mapped instead of the base contact footprint $(x_c, y_{max})$.
+Ingesting disparate chess datasets (Roboflow Universe, Kaggle, ChessReD, Hugging Face) introduces conflicting class ontologies (e.g. `['wP', 'bK']`, `['white-queen', 'black-rook']`, `['W_P', 'B_K']`, 0-indexed vs 1-indexed integers). Additionally, different architectural paradigms exist across literature and computer vision benchmarks:
+1. **12 Classes vs. 13 Classes**: Standard single-stage object detectors (YOLO, RT-DETR) treat background as implicit negative samples. In contrast, 64-patch classification architectures (e.g., *ChessCog* [Wölflein et al. 2021], *LiveChess2FEN* [Mallasen et al. 2020]) slice a rectified board into 64 uniform patches, requiring an explicit 13th `empty_square` class.
+2. **Board Corner Representation**: Some toy datasets represent corners as a 13th bounding box class. However, perspective homography $H$ requires exact $(x,y)$ vertex coordinates. A bounding box $(x_{min}, y_{min}, x_{max}, y_{max})$ has a $\pm 5\text{--}15\text{ px}$ centroid uncertainty that magnifies exponentially across an $8 \times 8$ grid (*HomoCorner-Net* [SPIE 2024], *ChESS* [Bennett & Lasenby]).
+3. **Bounding Box Validation & Precision Drift**: Raw datasets often contain floating-point precision drift (e.g. $1.000002$ or $-0.000001$), zero-area boxes, or truncated out-of-frame annotations that trigger `ignoring corrupt image/label` warnings or NaN loss crashes in Ultralytics YOLO trainers.
+4. **Perspective Parallax**: Angled camera views ($30^\circ\text{--}75^\circ$) cause tall pieces (King, Queen) to lean into background squares if centroid $(x_c, y_c)$ is mapped instead of the base contact footprint $(x_c, y_{max})$ (*ScitePress / VUT Brno 2024*).
 
 ### **Decision:**
 1. **Strict 12-Class Piece Ontology**: Standardize exclusively on 12 piece classes (`white_pawn`...`white_king`, `black_pawn`...`black_king`). Do NOT add an `empty_square` class to object detection models; empty tiles are implicitly defined by the absence of detections.
-2. **Grouped Numerical Indexing ($0..5$ White, $6..11$ Black)**:
+2. **Ultralytics Negative Sample Standard**: For images without pieces (empty chessboards or background surfaces), provide **0-byte empty `.txt` label files** in `labels/` to explicitly train the background confidence and suppress false-positive tile detections without adding dummy coordinates.
+3. **Grouped Numerical Indexing ($0..5$ White, $6..11$ Black)**:
    - White: `0: white_pawn`, `1: white_knight`, `2: white_bishop`, `3: white_rook`, `4: white_queen`, `5: white_king`
    - Black: `6: black_pawn`, `7: black_knight`, `8: black_bishop`, `9: black_rook`, `10: black_queen`, `11: black_king`
-   - Enables direct bitwise/modulo properties: `color = "white" if class_id < 6 else "black"`, `piece_type = class_id % 6`, aligning 1-to-1 with `python-chess` enums.
-3. **Decoupled Geometric Corner Localization**: Exclude board corners from the piece detector. Corner detection is delegated strictly to a dedicated geometric pipeline (OpenCV Canny/Hough/Quad or YOLO-Pose keypoints in EPIC-03).
-4. **Epsilon-Bounded Coordinate Sanitization**:
+   - Enables direct $O(1)$ modulo properties: `color = "white" if class_id < 6 else "black"`, `piece_type = (class_id % 6) + 1`, aligning 1-to-1 with `python-chess` enums (`chess.PAWN=1 ... chess.KING=6`).
+4. **Decoupled Geometric Corner Localization**: Exclude board corners from the piece detector. Corner detection is delegated strictly to a dedicated geometric pipeline (OpenCV Canny/Hough/Quad or YOLO-Pose keypoints in EPIC-03) to ensure sub-pixel vertex precision.
+5. **Epsilon-Bounded Coordinate Sanitization**:
    - Normalized YOLO format: $[class\_id, x_c, y_c, w, h] \in [0.0, 1.0]$.
    - Epsilon clamping: Any coordinate within $[-10^{-5}, 1.0 + 10^{-5}]$ is clamped to $[0.0, 1.0]$.
    - Degenerate box filtering: Discard annotations with $w < 0.005$ or $h < 0.005$ or visible area $< 40\%$ when intersecting image boundaries.
-5. **Footprint Contact Point Specification**: Downstream square assignment in EPIC-05 must use the bottom-center anchor $(x_c, y_c + \frac{h}{2})$ rather than the bounding box centroid.
+6. **Footprint Contact Point Specification**: Downstream square assignment in EPIC-05 must use the bottom-center anchor $(x_c, y_c + \frac{h}{2})$ rather than the bounding box centroid to eliminate perspective tilt errors.
+
+### **Literature & Benchmark Citations:**
+* **ChessReD (VISAPP 2024 / arXiv:2310.04086)**: Confirmed 12 piece classes across 10,800 real-world images; demonstrated end-to-end FEN models suffer from error accumulation without decoupled geometry.
+* **ChessCog (MDPI Journal of Imaging 2021 / arXiv:2106.14378)**: Clarified the distinction between 64-square patch classification (requiring 13 classes) and sparse detection.
+* **HomoCorner-Net (SPIE 2024)** & **ChESS (CVIU / arXiv:1301.5491)**: Demonstrated corner reprojection sensitivity and necessity of sub-pixel keypoint regression for planar homography $H$.
+* **Ultralytics YOLO Dataset Standards**: Mandates normalized coordinates, 0-byte negative sample files, and parallel `images/` / `labels/` structures.
+* **Populated Chessboard Recognition (ScitePress / VUT Brno 2024)**: Proved base contact point localization eliminates square assignment errors caused by tall piece parallax.
 
 ### **Consequences:**
 - Eliminates anchor clutter and NMS false-positive suppression on empty squares.
-- Prevents training crashes across PyTorch and Ultralytics YOLOv8/YOLO11 pipelines.
+- Prevents training crashes across PyTorch and Ultralytics YOLOv8/YOLO11/YOLO26 pipelines.
 - Guarantees seamless conversion between raw bounding boxes, `python-chess.Piece` representations, and FEN strings.
 - Complete parity across digital screenshots and 3D physical camera angles.
 
