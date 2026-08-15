@@ -53,6 +53,12 @@ from src.dataset.normalizer import (
     StandardizedAnnotation,
     UnknownClassError,
 )
+from src.dataset.parallax import (
+    ContactAnchorPoint,
+    ParallaxContactAnalyzer,
+    ParallaxDiagnosticResult,
+    PieceParallaxMetric,
+)
 
 __all__ = [
     "BaseDatasetDownloader",
@@ -98,7 +104,12 @@ __all__ = [
     "FilePairInfo",
     "DatasetAuditReport",
     "DatasetIntegrityAuditor",
+    "ContactAnchorPoint",
+    "PieceParallaxMetric",
+    "ParallaxDiagnosticResult",
+    "ParallaxContactAnalyzer",
 ]
+
 
 
 

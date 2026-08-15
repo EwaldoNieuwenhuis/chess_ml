@@ -165,7 +165,7 @@ flowchart TD
     - Computes and logs class balance distribution histograms and degenerate box rejection rates.
     - Returns exit code 0 on clean dataset, non-zero on data corruption (usable in automated CI).
 
-- [ ] **US-2.3.4: Perspective Parallax & Contact Footprint Diagnostic Visualizer**
+- [x] **US-2.3.4: Perspective Parallax & Contact Footprint Diagnostic Visualizer**
   - **Description:** Create a diagnostic tool (`scripts/verify_contact_anchors.py`) that renders side-by-side comparisons of full bounding boxes, centroids, and bottom-center base contact anchors $(x_c, y_c + h/2)$ mapped onto rectified boards.
   - **Acceptance Criteria:**
     - Renders color-coded overlays demonstrating that the bottom-center contact anchor correctly locates tall pieces (Kings, Queens, Rooks) on their physical square footprints across $30^\circ\text{--}75^\circ$ angled photographs.
