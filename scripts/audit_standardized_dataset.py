@@ -109,8 +109,8 @@ def display_annotation_summary(report: DatasetAuditReport) -> None:
     table.add_row("Total Scanned Bounding Boxes", str(report.total_boxes_scanned), "100.0%")
     
     valid_pct = (report.valid_boxes_count / tot_boxes) * 100.0
-    valid_style = "[green]" if report.corrupted_boxes_count == 0 else "[yellow]"
-    table.add_row("Valid Canonical Annotations", f"{valid_style}{report.valid_boxes_count}[/{valid_style}]", f"{valid_pct:.2f}%")
+    valid_color = "green" if report.corrupted_boxes_count == 0 else "yellow"
+    table.add_row("Valid Canonical Annotations", f"[{valid_color}]{report.valid_boxes_count}[/{valid_color}]", f"{valid_pct:.2f}%")
 
     corrupt_style = "[green]0[/green]" if report.corrupted_boxes_count == 0 else f"[bold red]{report.corrupted_boxes_count}[/bold red]"
     table.add_row("Corrupted / Invalid Bounding Boxes", corrupt_style, f"{(report.corrupted_boxes_count / tot_boxes) * 100:.2f}%")
