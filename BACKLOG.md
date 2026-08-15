@@ -149,7 +149,7 @@ flowchart TD
     - *Decoupled Board Corners:* Board corners are excluded from the piece detector bounding boxes and handled by dedicated geometric homography / YOLO-Pose keypoints (EPIC-03 / HomoCorner-Net [SPIE 2024]), avoiding loose corner boxes that lack sub-pixel vertex precision.
     - *Parallax-Free Anchoring:* Standardizes bounding boxes around full visible piece bodies, while downstream coordinate mapping (EPIC-05) uses bottom-center base contact points $(x_c, y_c + h/2)$ to eliminate perspective tilt errors for tall pieces.
 
-- [ ] **US-2.3.2: Hybrid Dataset Merger, Deduplication & YOLO Splitter**
+- [x] **US-2.3.2: Hybrid Dataset Merger, Deduplication & YOLO Splitter**
   - **Description:** Merge physical and digital subsets into a balanced hybrid dataset (`data/hybrid_chess/`) with stratified train/validation/test splits (e.g., 70/15/15) and generate `data.yaml`.
   - **Acceptance Criteria:**
     - Generates balanced `data/hybrid_chess/train`, `data/hybrid_chess/val`, `data/hybrid_chess/test`.

@@ -2,6 +2,19 @@
 Dataset ingestion, normalization, and builder package for Chess ML.
 """
 
+from src.dataset.builder import (
+    DatasetBuilderError,
+    DatasetDeduplicator,
+    DatasetEmptyError,
+    DatasetManifest,
+    DatasetSplitRatio,
+    DeduplicationReport,
+    HybridDatasetBuilder,
+    ImageSample,
+    InvalidSplitRatioError,
+    SplitPartitionSummary,
+    StratifiedDatasetSplitter,
+)
 from src.dataset.downloaders import (
     DEFAULT_DIGITAL_CONFIG_PATH,
     DEFAULT_PHYSICAL_CONFIG_PATH,
@@ -58,5 +71,17 @@ __all__ = [
     "UnknownClassError",
     "InvalidCoordinateError",
     "DEFAULT_CANONICAL_CONFIG_PATH",
+    "DatasetSplitRatio",
+    "ImageSample",
+    "DeduplicationReport",
+    "SplitPartitionSummary",
+    "DatasetManifest",
+    "DatasetDeduplicator",
+    "StratifiedDatasetSplitter",
+    "HybridDatasetBuilder",
+    "DatasetBuilderError",
+    "InvalidSplitRatioError",
+    "DatasetEmptyError",
 ]
+
 
