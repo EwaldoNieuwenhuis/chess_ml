@@ -17,3 +17,15 @@ The training and evaluation splits aggregate open-source benchmark datasets:
 To ensure generalization across boards (wood, plastic, marble, digital themes), the training pipeline applies:
 * **Spatial Transforms:** Perspective warp ($\pm 15^\circ$), random rotation ($\pm 10^\circ$), random scaling ($0.8\times - 1.2\times$).
 * **Photometric Transforms:** Random glare/lighting shadows, Gaussian blur ($3\times3$ to $5\times5$), ColorJitter (brightness $\pm 0.2$, contrast $\pm 0.2$, saturation $\pm 0.3$), ISO noise.
+
+---
+
+## 3. Canonical Label Schema & Coordinate Standards (ADR-008)
+
+All datasets are normalized to standard YOLO format:
+* **Classes (12):**
+  * White: `0: white_pawn`, `1: white_knight`, `2: white_bishop`, `3: white_rook`, `4: white_queen`, `5: white_king`
+  * Black: `6: black_pawn`, `7: black_knight`, `8: black_bishop`, `9: black_rook`, `10: black_queen`, `11: black_king`
+* **Format:** `class_id x_center y_center width height` (normalized $0.0 \le x, y, w, h \le 1.0$).
+* **Validation & Clamping:** Epsilon boundary clamping ($[-10^{-5}, 1.0 + 10^{-5}] \to [0.0, 1.0]$) and degenerate box filtering ($w, h \ge 0.005$).
+

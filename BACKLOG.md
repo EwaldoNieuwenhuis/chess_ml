@@ -136,21 +136,24 @@ flowchart TD
 
 ### 🔹 Feature 2.3: Label Standardization & Unified Hybrid Dataset Builder
 - [ ] **US-2.3.1: Canonical Class Name & Coordinate Standardizer**
-  - **Description:** Map heterogeneous class naming schemes (e.g. `['wP', 'bK']`, `['white-queen', 'black-rook']`, `[0..11]`) from multiple disparate datasets into the project's standard 12 piece labels:
+  - **Description:** Map heterogeneous class naming schemes (e.g. `['wP', 'bK']`, `['white-queen', 'black-rook']`, `[0..11]`, `['W_P', 'B_K']`) from multiple disparate datasets into the project's canonical 12 piece labels:
     `[white_pawn, white_knight, white_bishop, white_rook, white_queen, white_king, black_pawn, black_knight, black_bishop, black_rook, black_queen, black_king]`.
   - **Acceptance Criteria:**
     - Standardizes all bounding boxes to normalized YOLO format (`class_id x_center y_center width height`).
-    - Validates coordinates ($0.0 \le x, y, w, h \le 1.0$) and removes corrupted or out-of-bounds annotations.
-  - 💡 **Architectural Notes & Alternatives:**
-    - *Assumption:* 12 classes (pieces only).
-    - *Alternative Considered:* 13th class for `empty_square` or `board_corner` keypoints.
-    - *Trade-off:* Keeping 12 piece classes is standard for object detection (background is implicitly empty). If corner detection is integrated into the detector, corners can be represented as class 12 (`board_corner`) or as YOLO-Pose keypoints.
+    - Enforces epsilon boundary clamping ($[-10^{-5}, 1.0 + 10^{-5}] \to [0.0, 1.0]$) to eliminate floating-point precision drift.
+    - Validates coordinates ($0.0 \le x, y, w, h \le 1.0$) and removes corrupted, zero-area, or degenerate annotations ($w < 0.005$ or $h < 0.005$).
+    - Groups classes numerically: $0..5$ White (`white_pawn`..`white_king`), $6..11$ Black (`black_pawn`..`black_king`), enabling direct `class_id < 6` color checks and `class_id % 6` `python-chess` piece mappings.
+  - 💡 **Architectural Notes & Alternatives (See ADR-008):**
+    - *Class Ontology (12 vs. 13 Classes):* 12 piece classes is optimal for bounding box object detection (YOLOv8/11/RT-DETR). The background is implicitly modeled as negative samples; injecting an explicit `empty_square` bounding box class causes severe anchor clutter (32+ overlapping boxes on empty tiles) and degrades NMS. The 13-class paradigm is used strictly in 64-patch tile classifiers (e.g., ChessCog, LiveChess2FEN), not object detectors.
+    - *Decoupled Board Corners:* Board corners are excluded from the piece detector bounding boxes and handled by dedicated geometric homography / YOLO-Pose keypoints (EPIC-03), avoiding loose corner boxes that lack sub-pixel vertex precision.
+    - *Parallax-Free Anchoring:* Standardizes bounding boxes around full visible piece bodies, while downstream coordinate mapping (EPIC-05) uses bottom-center base contact points $(x_c, y_c + h/2)$ to eliminate perspective tilt errors for tall pieces.
 
 - [ ] **US-2.3.2: Hybrid Dataset Merger, Deduplication & YOLO Splitter**
   - **Description:** Merge physical and digital subsets into a balanced hybrid dataset (`data/hybrid_chess/`) with stratified train/validation/test splits (e.g., 70/15/15) and generate `data.yaml`.
   - **Acceptance Criteria:**
     - Generates balanced `data/hybrid_chess/train`, `data/hybrid_chess/val`, `data/hybrid_chess/test`.
-    - Generates `data/hybrid_chess/data.yaml` compatible with Ultralytics YOLO.
+    - Generates `data/hybrid_chess/data.yaml` compatible with Ultralytics YOLO with canonical 12 class names.
+    - Includes negative samples (empty background boards) with 0-byte `.txt` files to suppress false positive detections on empty squares.
     - Script `scripts/visualize_hybrid_dataset.py` creates sample overlays for visual QA of both digital and physical samples.
 
 ---

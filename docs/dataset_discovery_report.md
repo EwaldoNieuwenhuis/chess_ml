@@ -282,6 +282,22 @@ names:
 | `black-queen`, `bq`, `B_Q`, `q`, `black_queen` | Roboflow / Kaggle / ChessReD | `10` | `black_queen` |
 | `black-king`, `bk`, `B_K`, `k`, `black_king` | Roboflow / Kaggle / ChessReD | `11` | `black_king` |
 
+### 📐 Coordinate Standardization & Sanitization Rules (ADR-008)
+
+To eliminate floating-point precision drift and malformed annotations across datasets, all bounding boxes are converted to normalized YOLO format:
+
+1. **COCO $[x_{min}, y_{min}, w_{pix}, h_{pix}]$ to YOLO $[x_c, y_c, w, h]$:**
+   $$x_c = \frac{x_{min} + \frac{w_{pix}}{2}}{W_{img}}, \quad y_c = \frac{y_{min} + \frac{h_{pix}}{2}}{H_{img}}, \quad w = \frac{w_{pix}}{W_{img}}, \quad h = \frac{h_{pix}}{H_{img}}$$
+
+2. **Pascal VOC $[x_{min}, y_{min}, x_{max}, y_{max}]$ to YOLO $[x_c, y_c, w, h]$:**
+   $$x_c = \frac{x_{min} + x_{max}}{2 \cdot W_{img}}, \quad y_c = \frac{y_{min} + y_{max}}{2 \cdot H_{img}}, \quad w = \frac{x_{max} - x_{min}}{W_{img}}, \quad h = \frac{y_{max} - y_{min}}{H_{img}}$$
+
+3. **Epsilon Boundary Clamping & Validation:**
+   - **Boundary Drift:** Clamp any coordinate in $[-10^{-5}, 1.0 + 10^{-5}]$ to $[0.0, 1.0]$.
+   - **Degenerate Boxes:** Reject annotations where $w < 0.005$ or $h < 0.005$ or area $< 2.5 \times 10^{-5}$.
+   - **Out-of-Frame Truncation:** If a bounding box extends beyond image boundaries, clamp to $[0.0, 1.0]$ only if $\ge 40\%$ of the box remains inside the frame; otherwise discard.
+   - **Empty Background Images:** Maintain images with zero piece annotations as 0-byte `.txt` label files to provide explicit negative samples for Ultralytics YOLO training.
+
 ---
 
 ## 4. Ingestion Pipeline Architecture & Execution Strategy
