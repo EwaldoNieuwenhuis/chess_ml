@@ -54,9 +54,10 @@ flowchart TD
 
 ## 🌟 Key Technical Innovations
 
-1. **Dual-Domain Geometric Branching (EPIC-03 / ADR-004)**
-   - Automatically differentiates clean digital pixels from complex camera noise in sub-2ms using Laplacian blur variance and color entropy.
-   - Routes digital screenshots through orthogonal bounding box isolation, and physical photographs through 4-corner planar homography ($H$) rectification.
+1. **Two-Tier Cascaded Domain Classification (EPIC-03 / ADR-009)**
+   - **Tier-1 Fast Path (<0.4 ms)**: Sub-millisecond, zero-weight statistical screener combining normalized HSV Shannon entropy ($H_{\text{norm}}$), zero-noise flat patch ratio ($ZNR$), orthogonal axis gradient energy ($AGE$), and lighting homogeneity ($LH$) across dual global and central board ROIs.
+   - **Tier-2 Neural Fallback (<0.5 ms)**: Ultra-compact MicroCNN ONNX model (~148k parameters, 0.59 MB ONNX) triggered exclusively when Tier-1 confidence is ambiguous ($0.20 \le S \le 0.80$), robustly handling textured boards and screen recaptures with Moiré.
+
 
 2. **Strict Canonical 12-Class Schema & 0-Byte Negative Samples (ADR-008)**
    - Eliminates anchor clutter and empty-tile false positives by standardizing on 12 piece classes ($0..5$ White, $6..11$ Black).

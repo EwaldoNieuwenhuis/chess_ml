@@ -28,6 +28,7 @@ from typing import Any, Callable
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
+from tqdm.auto import tqdm
 
 logger = logging.getLogger("chess_ml.dataset")
 
@@ -148,21 +149,26 @@ class BaseDatasetDownloader(ABC):
                 bytes_downloaded = 0
                 hasher = hashlib.md5()
 
-                logger.info(
-                    f"Downloading {description or dest_path.name} "
-                    f"({total_size / (1024 * 1024):.2f} MB)..."
-                )
-
-                with open(temp_path, "wb") as f_out:
-                    while True:
-                        chunk = response.read(chunk_size)
-                        if not chunk:
-                            break
-                        f_out.write(chunk)
-                        hasher.update(chunk)
-                        bytes_downloaded += len(chunk)
-                        if progress_callback:
-                            progress_callback(bytes_downloaded, total_size)
+                display_desc = description or dest_path.name
+                with tqdm(
+                    total=total_size if total_size > 0 else None,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=f"📥 {display_desc[:35]}",
+                    leave=True,
+                ) as pbar:
+                    with open(temp_path, "wb") as f_out:
+                        while True:
+                            chunk = response.read(chunk_size)
+                            if not chunk:
+                                break
+                            f_out.write(chunk)
+                            hasher.update(chunk)
+                            bytes_downloaded += len(chunk)
+                            pbar.update(len(chunk))
+                            if progress_callback:
+                                progress_callback(bytes_downloaded, total_size)
 
             actual_md5 = hasher.hexdigest()
             if expected_md5 and actual_md5.lower() != expected_md5.lower():
@@ -189,24 +195,36 @@ class BaseDatasetDownloader(ABC):
 
     @staticmethod
     def compute_md5(file_path: Path, chunk_size: int = 65536) -> str:
-        """Compute the MD5 checksum of a local file."""
+        """Compute the MD5 checksum of a local file with tqdm progress."""
+        file_path = Path(file_path)
+        file_size = file_path.stat().st_size if file_path.exists() else 0
         hasher = hashlib.md5()
-        with open(file_path, "rb") as f:
-            while chunk := f.read(chunk_size):
-                hasher.update(chunk)
+        with tqdm(
+            total=file_size,
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+            desc=f"🔒 Checksum {file_path.name[:30]}",
+            leave=False,
+        ) as pbar:
+            with open(file_path, "rb") as f:
+                while chunk := f.read(chunk_size):
+                    hasher.update(chunk)
+                    pbar.update(len(chunk))
         return hasher.hexdigest()
 
     @staticmethod
     def safe_extract_zip(zip_path: Path, extract_dir: Path) -> list[Path]:
         """
-        Safely extract a zip file with path traversal (Zip Slip) vulnerability protection.
+        Safely extract a zip file with path traversal (Zip Slip) vulnerability protection and tqdm progress.
         """
         extract_dir = Path(extract_dir).resolve()
         extract_dir.mkdir(parents=True, exist_ok=True)
         extracted_files: list[Path] = []
 
         with zipfile.ZipFile(zip_path, "r") as archive:
-            for member in archive.infolist():
+            members = archive.infolist()
+            for member in tqdm(members, desc=f"📦 Extracting {zip_path.name[:30]}", leave=True, unit="file"):
                 target_path = (extract_dir / member.filename).resolve()
                 if not str(target_path).startswith(str(extract_dir)):
                     raise DatasetDownloadError(
