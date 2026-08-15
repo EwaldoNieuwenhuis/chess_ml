@@ -18,6 +18,19 @@ from src.dataset.downloaders import (
     RoboflowDatasetDownloader,
     get_credential_from_env,
 )
+from src.dataset.normalizer import (
+    DEFAULT_CANONICAL_CONFIG_PATH,
+    AnnotationStandardizer,
+    CanonicalClassInfo,
+    CanonicalClassMapper,
+    DatasetLabelNormalizer,
+    InvalidCoordinateError,
+    NormalizedBBox,
+    NormalizerError,
+    SanitizationStats,
+    StandardizedAnnotation,
+    UnknownClassError,
+)
 
 __all__ = [
     "BaseDatasetDownloader",
@@ -34,5 +47,16 @@ __all__ = [
     "DEFAULT_DIGITAL_CONFIG_PATH",
     "DEFAULT_SOURCES_CONFIG_PATH",
     "get_credential_from_env",
+    "CanonicalClassInfo",
+    "CanonicalClassMapper",
+    "NormalizedBBox",
+    "StandardizedAnnotation",
+    "SanitizationStats",
+    "AnnotationStandardizer",
+    "DatasetLabelNormalizer",
+    "NormalizerError",
+    "UnknownClassError",
+    "InvalidCoordinateError",
+    "DEFAULT_CANONICAL_CONFIG_PATH",
 ]
 

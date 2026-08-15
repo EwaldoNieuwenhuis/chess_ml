@@ -135,7 +135,7 @@ flowchart TD
 
 
 ### 🔹 Feature 2.3: Label Standardization & Unified Hybrid Dataset Builder
-- [ ] **US-2.3.1: Canonical Class Name & Coordinate Standardizer**
+- [x] **US-2.3.1: Canonical Class Name & Coordinate Standardizer**
   - **Description:** Map heterogeneous class naming schemes (e.g. `['wP', 'bK']`, `['white-queen', 'black-rook']`, `[0..11]`, `['W_P', 'B_K']`) from multiple disparate datasets into the project's canonical 12 piece labels:
     `[white_pawn, white_knight, white_bishop, white_rook, white_queen, white_king, black_pawn, black_knight, black_bishop, black_rook, black_queen, black_king]`.
   - **Acceptance Criteria:**

@@ -1,0 +1,333 @@
+# =============================================================================
+# Canonical 12-Class Schema & Standardization Configuration (Single Source of Truth)
+# =============================================================================
+# Standardizes piece class naming and index ordering across disparate datasets
+# (Roboflow Universe, Kaggle, ChessReD, Hugging Face, Synthetic Generators).
+#
+# Grouped Indexing:
+#   0..5 : White Pieces (Pawn, Knight, Bishop, Rook, Queen, King)
+#   6..11: Black Pieces (Pawn, Knight, Bishop, Rook, Queen, King)
+#
+# Modulo Properties:
+#   color = "white" if class_id < 6 else "black"
+#   piece_type = class_id % 6 (0: Pawn, 1: Knight, 2: Bishop, 3: Rook, 4: Queen, 5: King)
+# =============================================================================
+
+canonical_classes:
+  0:
+    name: "white_pawn"
+    piece_type: "pawn"
+    color: "white"
+    fen_char: "P"
+  1:
+    name: "white_knight"
+    piece_type: "knight"
+    color: "white"
+    fen_char: "N"
+  2:
+    name: "white_bishop"
+    piece_type: "bishop"
+    color: "white"
+    fen_char: "B"
+  3:
+    name: "white_rook"
+    piece_type: "rook"
+    color: "white"
+    fen_char: "R"
+  4:
+    name: "white_queen"
+    piece_type: "queen"
+    color: "white"
+    fen_char: "Q"
+  5:
+    name: "white_king"
+    piece_type: "king"
+    color: "white"
+    fen_char: "K"
+  6:
+    name: "black_pawn"
+    piece_type: "pawn"
+    color: "black"
+    fen_char: "p"
+  7:
+    name: "black_knight"
+    piece_type: "knight"
+    color: "black"
+    fen_char: "n"
+  8:
+    name: "black_bishop"
+    piece_type: "bishop"
+    color: "black"
+    fen_char: "b"
+  9:
+    name: "black_rook"
+    piece_type: "rook"
+    color: "black"
+    fen_char: "r"
+  10:
+    name: "black_queen"
+    piece_type: "queen"
+    color: "black"
+    fen_char: "q"
+  11:
+    name: "black_king"
+    piece_type: "king"
+    color: "black"
+    fen_char: "k"
+
+# Aliases mapping raw dataset labels to canonical class names
+aliases:
+  # White Pawn
+  "p": "black_pawn"
+  "P": "white_pawn"
+  "wp": "white_pawn"
+  "wP": "white_pawn"
+  "W_P": "white_pawn"
+  "white-pawn": "white_pawn"
+  "white_pawn": "white_pawn"
+  "white pawn": "white_pawn"
+  "whitepawn": "white_pawn"
+  "WhitePawn": "white_pawn"
+  "White-Pawn": "white_pawn"
+  "White_Pawn": "white_pawn"
+
+  # White Knight
+  "n": "black_knight"
+  "N": "white_knight"
+  "wn": "white_knight"
+  "wN": "white_knight"
+  "W_N": "white_knight"
+  "white-knight": "white_knight"
+  "white_knight": "white_knight"
+  "white knight": "white_knight"
+  "whiteknight": "white_knight"
+  "WhiteKnight": "white_knight"
+  "White-Knight": "white_knight"
+  "White_Knight": "white_knight"
+
+  # White Bishop
+  "b": "black_bishop"
+  "B": "white_bishop"
+  "wb": "white_bishop"
+  "wB": "white_bishop"
+  "W_B": "white_bishop"
+  "white-bishop": "white_bishop"
+  "white_bishop": "white_bishop"
+  "white bishop": "white_bishop"
+  "whitebishop": "white_bishop"
+  "WhiteBishop": "white_bishop"
+  "White-Bishop": "white_bishop"
+  "White_Bishop": "white_bishop"
+
+  # White Rook
+  "r": "black_rook"
+  "R": "white_rook"
+  "wr": "white_rook"
+  "wR": "white_rook"
+  "W_R": "white_rook"
+  "white-rook": "white_rook"
+  "white_rook": "white_rook"
+  "white rook": "white_rook"
+  "whiterook": "white_rook"
+  "WhiteRook": "white_rook"
+  "White-Rook": "white_rook"
+  "White_Rook": "white_rook"
+
+  # White Queen
+  "q": "black_queen"
+  "Q": "white_queen"
+  "wq": "white_queen"
+  "wQ": "white_queen"
+  "W_Q": "white_queen"
+  "white-queen": "white_queen"
+  "white_queen": "white_queen"
+  "white queen": "white_queen"
+  "whitequeen": "white_queen"
+  "WhiteQueen": "white_queen"
+  "White-Queen": "white_queen"
+  "White_Queen": "white_queen"
+
+  # White King
+  "k": "black_king"
+  "K": "white_king"
+  "wk": "white_king"
+  "wK": "white_king"
+  "W_K": "white_king"
+  "white-king": "white_king"
+  "white_king": "white_king"
+  "white king": "white_king"
+  "whiteking": "white_king"
+  "WhiteKing": "white_king"
+  "White-King": "white_king"
+  "White_King": "white_king"
+
+  # Black Pawn
+  "bp": "black_pawn"
+  "bP": "black_pawn"
+  "B_P": "black_pawn"
+  "black-pawn": "black_pawn"
+  "black_pawn": "black_pawn"
+  "black pawn": "black_pawn"
+  "blackpawn": "black_pawn"
+  "BlackPawn": "black_pawn"
+  "Black-Pawn": "black_pawn"
+  "Black_Pawn": "black_pawn"
+
+  # Black Knight
+  "bn": "black_knight"
+  "bN": "black_knight"
+  "B_N": "black_knight"
+  "black-knight": "black_knight"
+  "black_knight": "black_knight"
+  "black knight": "black_knight"
+  "blackknight": "black_knight"
+  "BlackKnight": "black_knight"
+  "Black-Knight": "black_knight"
+  "Black_Knight": "black_knight"
+
+  # Black Bishop
+  "bb": "black_bishop"
+  "bB": "black_bishop"
+  "B_B": "black_bishop"
+  "black-bishop": "black_bishop"
+  "black_bishop": "black_bishop"
+  "black bishop": "black_bishop"
+  "blackbishop": "black_bishop"
+  "BlackBishop": "black_bishop"
+  "Black-Bishop": "black_bishop"
+  "Black_Bishop": "black_bishop"
+
+  # Black Rook
+  "br": "black_rook"
+  "bR": "black_rook"
+  "B_R": "black_rook"
+  "black-rook": "black_rook"
+  "black_rook": "black_rook"
+  "black rook": "black_rook"
+  "blackrook": "black_rook"
+  "BlackRook": "black_rook"
+  "Black-Rook": "black_rook"
+  "Black_Rook": "black_rook"
+
+  # Black Queen
+  "bq": "black_queen"
+  "bQ": "black_queen"
+  "B_Q": "black_queen"
+  "black-queen": "black_queen"
+  "black_queen": "black_queen"
+  "black queen": "black_queen"
+  "blackqueen": "black_queen"
+  "BlackQueen": "black_queen"
+  "Black-Queen": "black_queen"
+  "Black_Queen": "black_queen"
+
+  # Black King
+  "bk": "black_king"
+  "bK": "black_king"
+  "B_K": "black_king"
+  "black-king": "black_king"
+  "black_king": "black_king"
+  "black king": "black_king"
+  "blackking": "black_king"
+  "BlackKing": "black_king"
+  "Black-King": "black_king"
+  "Black_King": "black_king"
+
+# Specific dataset source index-to-canonical mappings
+dataset_mappings:
+  # ChessReD COCO Categories (1-indexed in annotations.json)
+  chessred:
+    1: "white_pawn"
+    2: "white_knight"
+    3: "white_bishop"
+    4: "white_rook"
+    5: "white_queen"
+    6: "white_king"
+    7: "black_pawn"
+    8: "black_knight"
+    9: "black_bishop"
+    10: "black_rook"
+    11: "black_queen"
+    12: "black_king"
+
+  # Roboflow Staunton Dataset (Alphabetical 12-class standard)
+  roboflow_staunton:
+    0: "black_bishop"
+    1: "black_king"
+    2: "black_knight"
+    3: "black_pawn"
+    4: "black_queen"
+    5: "black_rook"
+    6: "white_bishop"
+    7: "white_king"
+    8: "white_knight"
+    9: "white_pawn"
+    10: "white_queen"
+    11: "white_rook"
+
+  # Roboflow Chess.com Dataset
+  roboflow_chess_com:
+    0: "black_bishop"
+    1: "black_king"
+    2: "black_knight"
+    3: "black_pawn"
+    4: "black_queen"
+    5: "black_rook"
+    6: "white_bishop"
+    7: "white_king"
+    8: "white_knight"
+    9: "white_pawn"
+    10: "white_queen"
+    11: "white_rook"
+
+  # Roboflow Lichess 2D Dataset
+  roboflow_lichess:
+    0: "black_bishop"
+    1: "black_king"
+    2: "black_knight"
+    3: "black_pawn"
+    4: "black_queen"
+    5: "black_rook"
+    6: "white_bishop"
+    7: "white_king"
+    8: "white_knight"
+    9: "white_pawn"
+    10: "white_queen"
+    11: "white_rook"
+
+  # Kaggle Tripod Dataset
+  kaggle_tripod:
+    0: "white_pawn"
+    1: "white_knight"
+    2: "white_bishop"
+    3: "white_rook"
+    4: "white_queen"
+    5: "white_king"
+    6: "black_pawn"
+    7: "black_knight"
+    8: "black_bishop"
+    9: "black_rook"
+    10: "black_queen"
+    11: "black_king"
+
+  # HuggingFace Digital Dataset
+  huggingface_digital:
+    0: "white_pawn"
+    1: "white_knight"
+    2: "white_bishop"
+    3: "white_rook"
+    4: "white_queen"
+    5: "white_king"
+    6: "black_pawn"
+    7: "black_knight"
+    8: "black_bishop"
+    9: "black_rook"
+    10: "black_queen"
+    11: "black_king"
+
+# Coordinate validation and sanitization thresholds
+sanitization:
+  epsilon: 0.00001               # 1e-5 boundary tolerance for floating-point drift
+  min_dimension: 0.005           # Minimum normalized width/height (approx 3-4 px on 640x640)
+  min_area: 0.000025             # Minimum normalized area (w * h)
+  min_visibility_ratio: 0.40     # Drop box if <40% remains after clamping to frame boundaries
