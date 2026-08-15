@@ -15,7 +15,7 @@
 | Epic | Description | Features | Status |
 | :--- | :--- | :---: | :---: |
 | **EPIC-01** | Core Infrastructure, Tooling & Engine Evaluation | 2 | `[x]` Completed |
-| **EPIC-02** | Open-Source Dataset Discovery, Ingestion & Curation | 3 | `[ ]` Not Started |
+| **EPIC-02** | Open-Source Dataset Discovery, Ingestion & Curation | 3 | `[-]` In Progress |
 | **EPIC-03** | Domain Classification & Geometric Pre-Processing | 3 | `[ ]` Not Started |
 | **EPIC-04** | Chess Piece Detection & Recognition Model Architecture | 3 | `[ ]` Not Started |
 | **EPIC-05** | Coordinate Mapping, Orientation & FEN Synthesis | 3 | `[ ]` Not Started |
@@ -108,7 +108,7 @@ flowchart TD
 ```
 
 ### 🔹 Feature 2.1: Dataset Discovery & Evaluation Spike
-- [ ] **US-2.1.1: [SPIKE] Open-Source Dataset Landscape Audit (Digital & Physical)**
+- [x] **US-2.1.1: [SPIKE] Open-Source Dataset Landscape Audit (Digital & Physical)**
   - **Description:** Research and catalog existing open-source chess piece detection datasets across Roboflow Universe, Kaggle, Hugging Face, and academic benchmarks.
   - **Acceptance Criteria:**
     - Document findings in `docs/dataset_discovery_report.md` detailing:
