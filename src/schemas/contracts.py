@@ -32,6 +32,28 @@ class DomainType(str, Enum):
     PHYSICAL_3D = "physical_3d"
 
 
+# Convenience alias
+Domain = DomainType
+
+
+class ClassificationMethod(str, Enum):
+    HEURISTIC = "heuristic"
+    NEURAL = "neural"
+
+
+class DomainClassificationResult(BaseModel):
+    """Result returned by the Two-Tier Automatic Input Domain Classifier."""
+
+    model_config = ConfigDict(frozen=True)
+
+    domain: DomainType = Field(..., description="Classified image domain (2D digital vs 3D physical)")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Calibrated confidence score [0.0, 1.0]")
+    method: ClassificationMethod = Field(..., description="Method used to classify: Tier-1 heuristic or Tier-2 neural fallback")
+    latency_ms: float = Field(..., ge=0.0, description="Classification execution latency in milliseconds")
+    heuristic_score: float | None = Field(default=None, description="Raw composite heuristic score S in [0.0, 1.0]")
+
+
+
 class Point2D(BaseModel):
     """Represents a 2D subpixel coordinate (x, y) on the image plane."""
 

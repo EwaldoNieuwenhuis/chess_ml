@@ -203,20 +203,32 @@ flowchart TD
 ```
 
 ### 🔹 Feature 3.1: Automatic Input Domain Classifier
-- [ ] **US-3.1.1: Statistical Heuristics Domain Classifier**
-  - **Description:** Implement a fast, zero-weight classifier using Laplacian variance (blur/texture detection), HSV color palette entropy/uniqueness, and edge line density.
+- [ ] **US-3.1.1: Multi-Feature Statistical Heuristics Screener (Tier-1 Fast Path)**
+  - **Description:** Implement a sub-millisecond, zero-weight statistical classifier combining 4 normalized features on a downscaled $128 \times 128$ thumbnail:
+    1. *Normalized HSV Palette Shannon Entropy ($H_{\text{norm}}$)*: Quantizes color distribution into 64 bins ($H_{\text{norm}} < 0.42$ for digital, $> 0.68$ for physical).
+    2. *Zero-Noise Flat Patch Ratio ($ZNR$)*: Measures local pixel variance $\sigma^2$ across $8 \times 8$ low-gradient blocks to detect the presence/absence of sensor photon noise.
+    3. *Orthogonal Axis Gradient Energy Ratio ($AGE$)*: Computes Sobel $0^\circ/90^\circ$ vs $45^\circ$ gradient energy ratio to detect digital raster grid alignment ($AGE > 3.5$).
+    4. *Lighting & Color Homogeneity ($LH$)*: Evaluates quadrant luminance variance to detect physical illumination falloff / vignetting.
   - **Acceptance Criteria:**
-    - Returns `Domain.DIGITAL` or `Domain.PHYSICAL` with confidence score in < 2ms.
-    - Achieves > 99% accuracy on standard validation test set of screenshots vs photos.
+    - Returns `Domain.DIGITAL` or `Domain.PHYSICAL` with calibrated confidence score in $< 0.5\text{ ms}$ on CPU.
+    - Fast-paths $\ge 90\%$ of standard clean inputs with $> 98\%$ accuracy.
   - 💡 **Architectural Notes & Alternatives:**
-    - *Assumption:* Statistical heuristics (Laplacian variance + color histogram peaks) can differentiate clean flat digital pixels from natural camera noise/lighting.
-    - *Alternative Considered:* Zero-shot CLIP classifier (`"a clean digital screenshot of a chessboard"` vs `"a photograph of a physical chess board"`) or a lightweight 1MB MobileNetV4.
-    - *Trade-off:* Heuristic classifier has 0ms neural latency and zero dependency overhead, but could struggle with photos taken of computer screens (moiré patterns). A lightweight CNN / fallback is great for edge cases.
+    - *Research Finding (ADR-009):* Single-scalar Laplacian variance alone fails on wood/marble digital boards and out-of-focus photos. Combining Shannon entropy + zero-noise flat patch analysis + orthogonal edge energy provides a mathematically sound discriminator with zero neural overhead.
+    - *Alternative Rejected:* Zero-shot CLIP / MobileCLIP requires $15\text{--}60\text{ ms}$ on CPU and $>40\text{ MB}$ weights, violating the $<2\text{ ms}$ pipeline latency budget.
 
-- [ ] **US-3.1.2: Lightweight CNN Classifier (Fallback / High Accuracy)**
-  - **Description:** Train/export a tiny MobileNetV3 / custom CNN classifier (under 2MB) for robust domain classification in ambiguous edge cases (e.g., photos of digital monitors).
+- [ ] **US-3.1.2: Lightweight ONNX MicroCNN Domain Classifier (Tier-2 Fallback)**
+  - **Description:** Train and export an ultra-compact MicroCNN / MobileNetV4-Conv-Small model ($< 1.5\text{ MB}$ ONNX) triggered exclusively when Tier-1 heuristic confidence falls in the ambiguous band ($0.20 \le S \le 0.80$, e.g., textured digital boards, screen recaptures with moiré, heavily compressed JPEGs).
   - **Acceptance Criteria:**
-    - Exported to ONNX with sub-5ms inference.
+    - Sub-$2.5\text{ ms}$ ONNX Runtime CPU inference ($<0.4\text{ ms}$ GPU).
+    - Correctly classifies recaptured monitor photos to `Domain.PHYSICAL` (enforcing homography rectification).
+    - Achieves $> 99.5\%$ accuracy across complex edge cases.
+
+- [ ] **US-3.1.3: Two-Tier Cascaded Domain Orchestrator & Confidence Router**
+  - **Description:** Integrate Tier-1 Screener and Tier-2 Fallback into a unified `DomainClassifier` interface implementing the contract `DomainClassificationResult(domain=Domain.DIGITAL/PHYSICAL, confidence=float, method="heuristic"|"neural", latency_ms=float)`.
+  - **Acceptance Criteria:**
+    - Blended latency $\le 0.8\text{ ms}$ on validation test set.
+    - Supports graceful offline CPU inference without PyTorch/GPU dependency at runtime.
+
 
 ### 🔹 Feature 3.2: Digital Board Localization & Orthogonal Slicing
 - [ ] **US-3.2.1: Digital Chessboard Boundary Detection**
