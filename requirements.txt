@@ -1,5 +1,5 @@
-# Core Dependencies (PyTorch CUDA 12.x wheels should be installed via --extra-index-url)
---extra-index-url https://download.pytorch.org/whl/cu121
+# Core Dependencies (PyTorch CUDA 12.8+ wheels for RTX 50-series Blackwell sm_120 support)
+--extra-index-url https://download.pytorch.org/whl/cu128
 
 torch>=2.2.0
 torchvision>=0.17.0

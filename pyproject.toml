@@ -56,15 +56,15 @@ dev = [
 where = ["."]
 include = ["src*"]
 
-# uv-specific index configuration for PyTorch CUDA 12.x wheels
+# uv-specific index configuration for PyTorch CUDA 12.8+ wheels (supports RTX 50-series Blackwell sm_120)
 [[tool.uv.index]]
-name = "pytorch-cu121"
-url = "https://download.pytorch.org/whl/cu121"
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu121" }
-torchvision = { index = "pytorch-cu121" }
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
 
 [tool.ruff]
 line-length = 100
