@@ -17,18 +17,7 @@ huggingface_digital:
       url: "https://huggingface.co/datasets/MohammedHemed/Chessboard-digital-images_with_fen/resolve/main/chess_yolo_data-20250419T135412Z-001.zip"
       is_archive: true
       extract_subdir: ""
-      description: "YOLO training/validation images and labels archive part 1"
-    part2:
-      filename: "chess_yolo_data-20250419T135412Z-002.zip"
-      url: "https://huggingface.co/datasets/MohammedHemed/Chessboard-digital-images_with_fen/resolve/main/chess_yolo_data-20250419T135412Z-002.zip"
-      is_archive: true
-      extract_subdir: ""
-      description: "YOLO training/validation images and labels archive part 2"
-    data_yaml:
-      filename: "data.yaml"
-      url: "https://huggingface.co/datasets/MohammedHemed/Chessboard-digital-images_with_fen/resolve/main/data.yaml"
-      is_archive: false
-      description: "Dataset YAML descriptor with class names and dataset paths"
+      description: "YOLO digital chessboard screenshots with multiple themes and FEN labels (Part 1)"
 
 roboflow_chess_com:
   name: "Roboflow Chess.com Pieces (Neo/Classic themes)"

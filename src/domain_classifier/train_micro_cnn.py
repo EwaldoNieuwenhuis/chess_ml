@@ -253,7 +253,7 @@ class ChessDomainDataset(Dataset):
 
         if label == 0:
             # DomainType.DIGITAL_2D
-            if self.real_digital and random.random() < 0.4:
+            if self.real_digital and random.random() < 0.75:
                 img_path = random.choice(self.real_digital)
                 img = cv2.imread(str(img_path))
                 if img is None:
@@ -264,27 +264,27 @@ class ChessDomainDataset(Dataset):
                 img = generate_synthetic_digital_board()
 
             # Random JPEG compression artifact
-            if random.random() < 0.4:
+            if random.random() < 0.35:
                 img = apply_jpeg_compression(img)
 
         else:
             # DomainType.PHYSICAL_3D (including monitor recaptures)
-            choice = random.random()
-            if self.real_physical and choice < 0.3:
+            if self.real_physical and random.random() < 0.75:
                 img_path = random.choice(self.real_physical)
                 img = cv2.imread(str(img_path))
                 if img is None:
                     img = generate_synthetic_physical_photo()
                 else:
                     img = cv2.resize(img, (128, 128), interpolation=cv2.INTER_AREA)
-            elif choice < 0.65:
-                # Standard physical camera photo
-                img = generate_synthetic_physical_photo()
             else:
-                # Recaptured monitor screen with moiré
-                img = generate_synthetic_screen_recapture()
+                # Recaptured monitor screen with moiré & synthetic angle photo
+                img = (
+                    generate_synthetic_screen_recapture()
+                    if random.random() < 0.60
+                    else generate_synthetic_physical_photo()
+                )
 
-            if random.random() < 0.3:
+            if random.random() < 0.30:
                 img = apply_jpeg_compression(img)
 
         # Preprocessing to PyTorch normalized tensor
