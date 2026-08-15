@@ -1,0 +1,23 @@
+# Core Dependencies (PyTorch CUDA 12.x wheels should be installed via --extra-index-url)
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+torch>=2.2.0
+torchvision>=0.17.0
+ultralytics>=8.3.0
+opencv-python-headless>=4.9.0
+python-chess>=1.999
+albumentations>=1.4.0
+onnxruntime-gpu>=1.17.0
+pydantic>=2.6.0
+numpy>=1.26.0,<2.0.0
+pillow>=10.2.0
+pyyaml>=6.0.1
+tqdm>=4.66.0
+rich>=13.7.0
+
+# Dev & Quality Dependencies
+pytest>=8.0.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.23.0
+ruff>=0.3.0
+mypy>=1.9.0
