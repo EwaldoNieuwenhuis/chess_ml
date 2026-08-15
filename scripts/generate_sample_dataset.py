@@ -180,10 +180,12 @@ def generate_samples(
         (d / "images").mkdir(parents=True, exist_ok=True)
         (d / "labels").mkdir(parents=True, exist_ok=True)
 
+    from tqdm.auto import tqdm
+
     console.print(f"[bold cyan]🎨 Generating synthetic sample datasets into: [yellow]{base_dir}[/yellow][/bold cyan]")
 
     # 1. Generate Physical 3D Samples
-    for i in range(num_physical):
+    for i in tqdm(range(num_physical), desc="Generating Physical 3D Boards", unit="img"):
         board = chess.Board()
         # Make a few random moves for varied positions
         for _ in range(random.randint(2, 20)):
@@ -203,7 +205,7 @@ def generate_samples(
     console.print(f"  [green]✓ Generated {num_physical} Physical 3D samples in {phys_dir}[/green]")
 
     # 2. Generate Digital 2D Samples
-    for i in range(num_digital):
+    for i in tqdm(range(num_digital), desc="Generating Digital 2D Boards", unit="img"):
         board = chess.Board()
         for _ in range(random.randint(0, 30)):
             moves = list(board.legal_moves)
@@ -223,7 +225,7 @@ def generate_samples(
 
     # 3. Generate Negative Background Samples (Empty Boards)
     empty_board = chess.Board(fen=None)  # Empty board
-    for i in range(num_negative):
+    for i in tqdm(range(num_negative), desc="Generating Negative Samples", unit="img"):
         img, _ = create_board_image(empty_board, is_physical=(i % 2 == 0))
         img_name = f"sample_neg_{i:04d}.jpg"
         lbl_name = f"sample_neg_{i:04d}.txt"

@@ -56,3 +56,17 @@ kaggle_tripod:
     - "KAGGLE_KEY"
   fallback_url: "https://www.kaggle.com/datasets/kneroma/chess-pieces-detection-image-dataset"
   description: "600+ physical chessboard images from fixed angle with Pascal VOC & YOLO annotations"
+
+real_physical_boards:
+  name: "Real Physical Chessboards Camera Dataset"
+  publisher: "Hugging Face (surawut / Roboflow 100)"
+  license: "CC BY 4.0"
+  target_subdir: "real_physical_boards"
+  auth_required: false
+  files:
+    dataset_zip:
+      filename: "chessboard-dataset-yolo.zip"
+      url: "https://huggingface.co/datasets/surawut/chessboard-dataset-yolo/resolve/main/chessboard-dataset-yolo.zip"
+      is_archive: true
+      extract_subdir: "raw"
+      description: "Thousands of real camera photographs of physical wooden/plastic chessboards from varying angles"

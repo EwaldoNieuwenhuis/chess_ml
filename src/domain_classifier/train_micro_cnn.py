@@ -204,19 +204,45 @@ class ChessDomainDataset(Dataset):
         num_samples: int = 4000,
         real_digital_dir: Path | None = None,
         real_physical_dir: Path | None = None,
+        split: str = "train",
+        split_ratios: tuple[float, float, float] = (0.70, 0.15, 0.15),
+        seed: int = 42,
         is_train: bool = True,
     ) -> None:
         self.num_samples = num_samples
-        self.is_train = is_train
+        self.split = split.lower()
+        self.is_train = (self.split == "train") if split in {"train", "val", "test"} else is_train
+        self.seed = seed
 
-        # Load real image paths if available
+        def _partition_files(file_list: list[Path]) -> list[Path]:
+            if not file_list:
+                return []
+            sorted_files = sorted(file_list)
+            rng = random.Random(seed)
+            rng.shuffle(sorted_files)
+            
+            n = len(sorted_files)
+            train_end = int(n * split_ratios[0])
+            val_end = train_end + int(n * split_ratios[1])
+            
+            if self.split == "train":
+                return sorted_files[:train_end]
+            elif self.split == "val":
+                return sorted_files[train_end:val_end]
+            elif self.split == "test":
+                return sorted_files[val_end:]
+            return sorted_files
+
+        # Load and partition real image paths if available
         self.real_digital: list[Path] = []
         if real_digital_dir and real_digital_dir.is_dir():
-            self.real_digital = list(real_digital_dir.glob("*.png")) + list(real_digital_dir.glob("*.jpg"))
+            all_digital = list(real_digital_dir.glob("*.png")) + list(real_digital_dir.glob("*.jpg"))
+            self.real_digital = _partition_files(all_digital)
 
         self.real_physical: list[Path] = []
         if real_physical_dir and real_physical_dir.is_dir():
-            self.real_physical = list(real_physical_dir.glob("*.jpg")) + list(real_physical_dir.glob("*.png"))
+            all_physical = list(real_physical_dir.glob("*.jpg")) + list(real_physical_dir.glob("*.png"))
+            self.real_physical = _partition_files(all_physical)
 
     def __len__(self) -> int:
         return self.num_samples
@@ -317,13 +343,13 @@ def train_and_export_micro_cnn(
         num_samples=num_train_samples,
         real_digital_dir=digital_dir,
         real_physical_dir=physical_dir,
-        is_train=True,
+        split="train",
     )
     val_dataset = ChessDomainDataset(
         num_samples=num_val_samples,
         real_digital_dir=digital_dir,
         real_physical_dir=physical_dir,
-        is_train=False,
+        split="val",
     )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
@@ -416,6 +442,7 @@ def train_and_export_micro_cnn(
         input_names=["input"],
         output_names=["output"],
         dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        dynamo=False,
     )
 
     file_size_mb = out_path.stat().st_size / (1024 * 1024)

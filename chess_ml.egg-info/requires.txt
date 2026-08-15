@@ -24,3 +24,5 @@ mypy>=1.9.0
 [gui]
 opencv-python>=4.9.0
 matplotlib>=3.8.0
+matplotlib-inline>=0.1.6
+ipywidgets>=8.1.0

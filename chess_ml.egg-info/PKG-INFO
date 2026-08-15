@@ -32,6 +32,8 @@ Requires-Dist: rich>=13.7.0
 Provides-Extra: gui
 Requires-Dist: opencv-python>=4.9.0; extra == "gui"
 Requires-Dist: matplotlib>=3.8.0; extra == "gui"
+Requires-Dist: matplotlib-inline>=0.1.6; extra == "gui"
+Requires-Dist: ipywidgets>=8.1.0; extra == "gui"
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
