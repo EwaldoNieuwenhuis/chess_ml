@@ -14,7 +14,7 @@
 
 | Epic | Description | Features | Status |
 | :--- | :--- | :---: | :---: |
-| **EPIC-01** | Core Infrastructure, Tooling & Engine Evaluation | 2 | `[ ]` Not Started |
+| **EPIC-01** | Core Infrastructure, Tooling & Engine Evaluation | 2 | `[-]` In Progress |
 | **EPIC-02** | Open-Source Dataset Discovery, Ingestion & Curation | 3 | `[ ]` Not Started |
 | **EPIC-03** | Domain Classification & Geometric Pre-Processing | 3 | `[ ]` Not Started |
 | **EPIC-04** | Chess Piece Detection & Recognition Model Architecture | 3 | `[ ]` Not Started |
@@ -38,20 +38,20 @@ flowchart LR
 ```
 
 ### 🔹 Feature 1.1: Environment & Project Scaffolding
-- [ ] **US-1.1.1: Project Configuration & Dependency Specification**
+- [x] **US-1.1.1: Project Configuration & Dependency Specification**
   - **Description:** Set up `pyproject.toml` / `requirements.txt` specifying Python 3.11, PyTorch (with CUDA 12.x support), `ultralytics`, `opencv-python`, `python-chess`, `albumentations`, `onnxruntime-gpu`, and `pytest`.
   - **Acceptance Criteria:**
-    - Clean installation in virtual environment.
-    - Script `scripts/verify_env.py` checks GPU availability, CUDA version, VRAM capacity, and key package imports.
+    - [x] Clean installation in virtual environment.
+    - [x] Script `scripts/verify_env.py` checks GPU availability, CUDA version, VRAM capacity, and key package imports.
   - 💡 **Architectural Notes & Alternatives:**
     - *Assumption:* Standard `requirements.txt` with PyTorch CUDA.
     - *Alternative Considered:* `uv` package manager / `poetry` / `pixi` for deterministic lockfiles and sub-second dependency resolution.
-    - *Trade-off:* `uv` provides significantly faster container/local builds and seamless cross-platform CUDA wheel resolution.
+    - *Trade-off:* `uv` provides significantly faster container/local builds and seamless cross-platform CUDA wheel resolution. Configured `cu128` wheels for RTX 50-series Blackwell architecture (`sm_120`).
 
-- [ ] **US-1.1.2: Modular Directory Architecture**
+- [x] **US-1.1.2: Modular Directory Architecture**
   - **Description:** Initialize project package structure (`src/domain_classifier`, `src/geometry`, `src/detection`, `src/fen_mapper`, `src/engine`, `src/pipeline`, `src/utils`, `tests/`, `data/`, `configs/`).
   - **Acceptance Criteria:**
-    - Standard package layout with clean `__init__.py` exports and type hinting support.
+    - [x] Standard package layout with clean `__init__.py` exports and type hinting support.
 
 ### 🔹 Feature 1.2: Stockfish UCI Engine Wrapper
 - [ ] **US-1.2.1: Stockfish Engine Manager & Query Interface**
