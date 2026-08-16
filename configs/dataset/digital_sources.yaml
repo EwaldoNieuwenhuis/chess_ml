@@ -18,6 +18,11 @@ huggingface_digital:
       is_archive: true
       extract_subdir: ""
       description: "YOLO digital chessboard screenshots with multiple themes and FEN labels (Part 1)"
+    data_yaml:
+      filename: "data.yaml"
+      url: "https://huggingface.co/datasets/MohammedHemed/Chessboard-digital-images_with_fen/resolve/main/data.yaml"
+      is_archive: false
+      description: "YOLO class metadata mapping"
 
 roboflow_chess_com:
   name: "Roboflow Chess.com Pieces (Neo/Classic themes)"

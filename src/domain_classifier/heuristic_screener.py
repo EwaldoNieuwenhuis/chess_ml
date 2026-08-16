@@ -185,6 +185,11 @@ class StatisticalHeuristicsScreener:
         img_bgr = self._prepare_image(image)
         h, w, _ = img_bgr.shape
 
+        if h == self.THUMBNAIL_SIZE and w == self.THUMBNAIL_SIZE:
+            _, feats = self._evaluate_single_thumbnail(img_bgr)
+            return feats
+
+        # Full-size image: evaluate global thumbnail
         thumb_global = cv2.resize(
             img_bgr,
             (self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE),
@@ -205,9 +210,7 @@ class StatisticalHeuristicsScreener:
             )
             score_center, feats_center = self._evaluate_single_thumbnail(thumb_center)
 
-            # If the central board displays unmistakable digital flat tiles (low texture & digital score),
-            # route to digital to prevent surrounding UI avatars from causing false physical classifications.
-            if feats_center.axis_gradient_ratio <= 0.38 and score_center < 0.45:
+            if score_center < score_global and score_center < 0.40:
                 return feats_center
 
         return feats_global

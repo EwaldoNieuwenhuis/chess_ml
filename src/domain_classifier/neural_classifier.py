@@ -27,6 +27,34 @@ from src.schemas.contracts import (
 )
 
 
+def letterbox_image(
+    bgr_image: np.ndarray,
+    target_size: int = 128,
+    pad_color: int = 114,
+) -> np.ndarray:
+    """
+    Resizes an image to fit within (target_size, target_size) while preserving aspect ratio.
+    Pads the remaining canvas with a neutral gray value (114).
+
+    Prevents rectangular screenshots from being distorted into non-square shapes.
+    """
+    h, w = bgr_image.shape[:2]
+    if h == target_size and w == target_size:
+        return bgr_image
+
+    scale = target_size / max(h, w)
+    nh, nw = int(round(h * scale)), int(round(w * scale))
+
+    interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LINEAR
+    resized = cv2.resize(bgr_image, (nw, nh), interpolation=interp)
+
+    canvas = np.full((target_size, target_size, 3), pad_color, dtype=np.uint8)
+    top = (target_size - nh) // 2
+    left = (target_size - nw) // 2
+    canvas[top:top + nh, left:left + nw] = resized
+    return canvas
+
+
 class NeuralDomainClassifier:
     """
     Tier-2 Neural Fallback Domain Classifier.
@@ -131,6 +159,7 @@ class NeuralDomainClassifier:
     def preprocess(self, bgr_image: np.ndarray) -> np.ndarray:
         """
         Preprocesses a BGR uint8 image into an ONNX NCHW float32 normalized tensor.
+        Uses aspect-preserving letterboxing to prevent square tile distortion.
         
         Args:
             bgr_image: uint8 numpy array (H, W, 3) in BGR space.
@@ -138,19 +167,11 @@ class NeuralDomainClassifier:
         Returns:
             Normalized float32 tensor of shape (1, 3, 128, 128).
         """
-        # Resize to 128x128 thumbnail
-        h, w = bgr_image.shape[:2]
-        if h != self.INPUT_SIZE or w != self.INPUT_SIZE:
-            resized = cv2.resize(
-                bgr_image,
-                (self.INPUT_SIZE, self.INPUT_SIZE),
-                interpolation=cv2.INTER_AREA if (h > self.INPUT_SIZE or w > self.INPUT_SIZE) else cv2.INTER_LINEAR,
-            )
-        else:
-            resized = bgr_image
+        # Aspect-ratio preserving letterbox resize to 128x128
+        letterboxed = letterbox_image(bgr_image, target_size=self.INPUT_SIZE, pad_color=114)
 
         # Convert BGR to RGB
-        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(letterboxed, cv2.COLOR_BGR2RGB)
 
         # Convert HWC uint8 -> CHW float32 [0.0, 1.0]
         chw = np.transpose(rgb, (2, 0, 1)).astype(np.float32) / 255.0

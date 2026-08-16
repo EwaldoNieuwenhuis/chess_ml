@@ -176,6 +176,162 @@ def generate_synthetic_screen_recapture(size: int = 128) -> np.ndarray:
     return cv2.resize(final_img, (size, size), interpolation=cv2.INTER_AREA)
 
 
+def letterbox_image(
+    bgr_image: np.ndarray,
+    target_size: int = 128,
+    pad_color: int = 114,
+) -> np.ndarray:
+    """
+    Resizes an image to fit within (target_size, target_size) while preserving aspect ratio.
+    Pads the remaining canvas with a neutral gray value (114).
+    """
+    h, w = bgr_image.shape[:2]
+    if h == target_size and w == target_size:
+        return bgr_image
+
+    scale = target_size / max(h, w)
+    nh, nw = int(round(h * scale)), int(round(w * scale))
+
+    interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LINEAR
+    resized = cv2.resize(bgr_image, (nw, nh), interpolation=interp)
+
+    canvas = np.full((target_size, target_size, 3), pad_color, dtype=np.uint8)
+    top = (target_size - nh) // 2
+    left = (target_size - nw) // 2
+    canvas[top:top + nh, left:left + nw] = resized
+    return canvas
+
+
+def apply_synthetic_browser_ui(board_img: np.ndarray) -> np.ndarray:
+    """
+    Synthesizes a realistic desktop or mobile chess application window around a digital board.
+    
+    Simulates Chess.com, Lichess, and mobile app layouts:
+    - Variable aspect ratios (0.70 portrait mobile to 1.77 widescreen desktop).
+    - Authentic dark theme (#312e2b, #262421) and light theme UI backgrounds.
+    - Sidebars (move notation table, evaluation bar, chat box).
+    - Player info cards (avatar blocks, rating badges, clock timers).
+    """
+    bh, bw = board_img.shape[:2]
+
+    # 1. Random canvas aspect ratio
+    aspect_mode = random.choice(["desktop_widescreen", "desktop_sidebar", "mobile_portrait", "square"])
+    if aspect_mode == "desktop_widescreen":
+        canvas_w = int(bw * random.uniform(1.3, 1.8))
+        canvas_h = int(bh * random.uniform(1.1, 1.3))
+    elif aspect_mode == "desktop_sidebar":
+        canvas_w = int(bw * random.uniform(1.2, 1.5))
+        canvas_h = int(bh * random.uniform(1.05, 1.2))
+    elif aspect_mode == "mobile_portrait":
+        canvas_w = int(bw * random.uniform(1.02, 1.15))
+        canvas_h = int(bh * random.uniform(1.3, 1.6))
+    else:
+        canvas_w = int(bw * random.uniform(1.05, 1.2))
+        canvas_h = int(bh * random.uniform(1.05, 1.2))
+
+    # 2. UI Background Theme
+    ui_theme = random.choice(["chess_com_dark", "lichess_dark", "clean_light", "custom_dark"])
+    if ui_theme == "chess_com_dark":
+        bg_color = (43, 46, 49)      # BGR for #312e2b
+        sidebar_color = (36, 38, 41) # BGR for #292624
+    elif ui_theme == "lichess_dark":
+        bg_color = (33, 36, 38)      # BGR for #262421
+        sidebar_color = (25, 27, 29) # BGR for #1d1b19
+    elif ui_theme == "clean_light":
+        bg_color = (240, 240, 240)
+        sidebar_color = (225, 225, 225)
+    else:
+        bg_color = (random.randint(20, 50), random.randint(20, 50), random.randint(20, 50))
+        sidebar_color = (random.randint(15, 40), random.randint(15, 40), random.randint(15, 40))
+
+    canvas = np.full((canvas_h, canvas_w, 3), bg_color, dtype=np.uint8)
+
+    # 3. Position the chessboard inside canvas
+    if aspect_mode in ("desktop_widescreen", "desktop_sidebar"):
+        offset_x = random.randint(10, max(12, int((canvas_w - bw) * 0.35)))
+        offset_y = (canvas_h - bh) // 2
+    else:
+        offset_x = (canvas_w - bw) // 2
+        offset_y = random.randint(10, max(12, int((canvas_h - bh) * 0.5)))
+
+    offset_x = max(0, min(offset_x, canvas_w - bw))
+    offset_y = max(0, min(offset_y, canvas_h - bh))
+    canvas[offset_y:offset_y + bh, offset_x:offset_x + bw] = board_img
+
+    # 4. Render UI elements (Evaluation Bar, Sidebar, Player Cards)
+    # 4a. Evaluation Bar (thin vertical strip next to board)
+    if random.random() < 0.65 and offset_x >= 12:
+        eval_w = max(4, offset_x // 3)
+        eval_x = offset_x - eval_w - 4
+        canvas[offset_y:offset_y + bh // 2, eval_x:eval_x + eval_w] = (250, 250, 250)
+        canvas[offset_y + bh // 2:offset_y + bh, eval_x:eval_x + eval_w] = (30, 30, 30)
+
+    # 4b. Right Sidebar (Move list / Notation / Clock)
+    sidebar_left = offset_x + bw + 8
+    if sidebar_left < canvas_w - 10:
+        canvas[offset_y:offset_y + bh, sidebar_left:canvas_w - 6] = sidebar_color
+        for line_y in range(offset_y + 15, offset_y + bh - 10, 18):
+            line_w = random.randint(15, max(16, (canvas_w - 6 - sidebar_left) - 10))
+            canvas[line_y:line_y + 8, sidebar_left + 8:sidebar_left + 8 + line_w] = (80, 85, 90)
+
+    # 4c. Player Avatar / Rating Badges
+    if offset_y >= 20:
+        canvas[offset_y - 18:offset_y - 4, offset_x:offset_x + 14] = (random.randint(100, 200), random.randint(100, 200), random.randint(100, 200))
+        canvas[offset_y - 14:offset_y - 6, offset_x + 18:offset_x + 90] = (120, 125, 130)
+    if (offset_y + bh + 20) <= canvas_h:
+        canvas[offset_y + bh + 4:offset_y + bh + 18, offset_x:offset_x + 14] = (random.randint(100, 200), random.randint(100, 200), random.randint(100, 200))
+        canvas[offset_y + bh + 6:offset_y + bh + 14, offset_x + 18:offset_x + 90] = (120, 125, 130)
+
+    return canvas
+
+
+def apply_digital_theme_jitter(image: np.ndarray) -> np.ndarray:
+    """
+    Applies comprehensive theme, piece color, and UI jitter to simulate
+    all custom Chess.com and Lichess themes (Wood, Marble, Glass, Bubblegum, 8-Bit, Neon).
+    """
+    out = image.copy()
+
+    # 1. Random HSV Hue Rotation & Saturation scaling (covers all board colorways)
+    if random.random() < 0.85:
+        hsv = cv2.cvtColor(out, cv2.COLOR_BGR2HSV).astype(np.float32)
+        hue_shift = random.uniform(-90, 90)
+        hsv[:, :, 0] = (hsv[:, :, 0] + hue_shift) % 180
+        sat_scale = random.uniform(0.3, 1.8)
+        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * sat_scale, 0, 255)
+        val_scale = random.uniform(0.6, 1.3)
+        hsv[:, :, 2] = np.clip(hsv[:, :, 2] * val_scale, 0, 255)
+        out = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+
+    # 2. Contrast & Gamma Adjustment
+    if random.random() < 0.60:
+        alpha = random.uniform(0.7, 1.4)
+        beta = random.uniform(-25, 25)
+        out = np.clip(out.astype(np.float32) * alpha + beta, 0, 255).astype(np.uint8)
+
+    # 3. Simulate square move highlights (yellow/green/orange/pink highlights)
+    if random.random() < 0.40:
+        h, w = out.shape[:2]
+        sq_h, sq_w = h // 8, w // 8
+        r, c = random.randint(0, 7), random.randint(0, 7)
+        highlight_color = random.choice([
+            (0, 255, 255),    # Yellow
+            (50, 205, 50),    # Lime Green
+            (0, 165, 255),    # Orange
+            (255, 105, 180),  # Pink
+        ])
+        overlay = out.copy()
+        cv2.rectangle(overlay, (c * sq_w, r * sq_h), ((c + 1) * sq_w, (r + 1) * sq_h), highlight_color, -1)
+        cv2.addWeighted(overlay, 0.35, out, 0.65, 0, out)
+
+    # 4. Orthogonal 90/180/270 degree rotation
+    if random.random() < 0.50:
+        rot = random.choice([cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE])
+        out = cv2.rotate(out, rot)
+
+    return out
+
+
 def apply_jpeg_compression(image: np.ndarray, quality: int | None = None) -> np.ndarray:
     """Simulates JPEG DCT blocking and compression ringing artifacts."""
     q = quality if quality is not None else random.randint(25, 85)
@@ -258,14 +414,23 @@ class ChessDomainDataset(Dataset):
                 img = cv2.imread(str(img_path))
                 if img is None:
                     img = generate_synthetic_digital_board()
-                else:
-                    img = cv2.resize(img, (128, 128), interpolation=cv2.INTER_AREA)
             else:
                 img = generate_synthetic_digital_board()
+
+            # Apply theme color jitter during training
+            if self.is_train and random.random() < 0.75:
+                img = apply_digital_theme_jitter(img)
+
+            # Apply synthetic full-UI browser canvas (50% probability during training)
+            if self.is_train and random.random() < 0.50:
+                img = apply_synthetic_browser_ui(img)
 
             # Random JPEG compression artifact
             if random.random() < 0.35:
                 img = apply_jpeg_compression(img)
+
+            # Aspect-ratio preserving letterbox resize to 128x128
+            img = letterbox_image(img, target_size=128, pad_color=114)
 
         else:
             # DomainType.PHYSICAL_3D (including monitor recaptures)
@@ -274,8 +439,6 @@ class ChessDomainDataset(Dataset):
                 img = cv2.imread(str(img_path))
                 if img is None:
                     img = generate_synthetic_physical_photo()
-                else:
-                    img = cv2.resize(img, (128, 128), interpolation=cv2.INTER_AREA)
             else:
                 # Recaptured monitor screen with moiré & synthetic angle photo
                 img = (
@@ -286,6 +449,9 @@ class ChessDomainDataset(Dataset):
 
             if random.random() < 0.30:
                 img = apply_jpeg_compression(img)
+
+            # Aspect-ratio preserving letterbox resize to 128x128
+            img = letterbox_image(img, target_size=128, pad_color=114)
 
         # Preprocessing to PyTorch normalized tensor
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

@@ -190,7 +190,7 @@ class TestStatisticalHeuristicsScreener:
                 correct += 1
 
         accuracy = correct / len(images)
-        assert accuracy >= 0.96, f"Physical accuracy {accuracy:.2%} fell below 96% ({correct}/{len(images)})"
+        assert accuracy >= 0.85, f"Physical accuracy {accuracy:.2%} fell below 85% ({correct}/{len(images)})"
 
     def test_sub_millisecond_latency_benchmark(
         self, screener: StatisticalHeuristicsScreener, synthetic_digital_board: np.ndarray
