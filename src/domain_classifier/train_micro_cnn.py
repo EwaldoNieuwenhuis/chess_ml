@@ -14,10 +14,12 @@ Trains the MicroCNN architecture, verifies >99.5% accuracy, and exports optimize
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import random
 import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Tuple
 
@@ -28,6 +30,99 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 from src.domain_classifier.micro_cnn import MicroCNN
+
+
+# ---------------------------------------------------------------------------
+# Training Telemetry & Structured Logging
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class EpochTelemetry:
+    epoch: int
+    total_epochs: int
+    train_loss: float
+    val_loss: float
+    train_acc: float
+    val_acc: float
+    val_digital_acc: float
+    val_physical_acc: float
+    learning_rate: float
+    grad_norm: float
+    vram_allocated_mb: float
+    vram_reserved_mb: float
+    throughput_samples_sec: float
+    duration_sec: float
+    eta_sec: float
+    is_best: bool
+
+
+class TrainingTelemetryLogger:
+    """
+    Structured telemetry logger for MicroCNN domain classifier training.
+    
+    Streams formatted ASCII tables and structured JSONL logs to disk.
+    """
+
+    def __init__(
+        self,
+        log_dir: str | Path = "logs",
+        experiment_name: str = "domain_classifier_training",
+    ) -> None:
+        self.log_dir = Path(log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.log_file = self.log_dir / f"{experiment_name}.log"
+        self.jsonl_file = self.log_dir / f"{experiment_name}_metrics.jsonl"
+        self.history: list[EpochTelemetry] = []
+
+    def log_header(self, total_epochs: int, num_train: int, num_val: int, batch_size: int, device_name: str) -> str:
+        header = (
+            f"\n{'=' * 115}\n"
+            f" 🚀 DOMAIN CLASSIFIER TRAINING TELEMETRY DASHBOARD\n"
+            f" Epochs: {total_epochs} | Train Samples: {num_train:,} | Val Samples: {num_val:,} | Batch Size: {batch_size} | Device: {device_name}\n"
+            f"{'=' * 115}\n"
+            f"┌──────┬────────────┬──────────┬───────────┬─────────┬─────────────┬──────────────┬──────────┬──────────┬─────────┬──────────┐\n"
+            f"│ Ep   │ Train Loss │ Val Loss │ Train Acc │ Val Acc │ Digital Acc │ Physical Acc │ LR       │ VRAM     │ Time    │ Status   │\n"
+            f"├──────┼────────────┼──────────┼───────────┼─────────┼─────────────┼──────────────┼──────────┼──────────┼─────────┼──────────┤"
+        )
+        with open(self.log_file, "a", encoding="utf-8") as f:
+            f.write(header + "\n")
+        return header
+
+    def log_epoch(self, telemetry: EpochTelemetry) -> str:
+        self.history.append(telemetry)
+        status_badge = "⭐ BEST" if telemetry.is_best else "  OK"
+        row = (
+            f"│ {telemetry.epoch:02d}/{telemetry.total_epochs:02d} │ "
+            f"{telemetry.train_loss:10.4f} │ "
+            f"{telemetry.val_loss:8.4f} │ "
+            f"{telemetry.train_acc * 100:8.2f}% │ "
+            f"{telemetry.val_acc * 100:6.2f}% │ "
+            f"{telemetry.val_digital_acc * 100:10.2f}% │ "
+            f"{telemetry.val_physical_acc * 100:11.2f}% │ "
+            f"{telemetry.learning_rate:8.2e} │ "
+            f"{telemetry.vram_allocated_mb:6.0f} MB │ "
+            f"{telemetry.duration_sec:5.1f}s   │ "
+            f"{status_badge:8s} │"
+        )
+        with open(self.log_file, "a", encoding="utf-8") as f:
+            f.write(row + "\n")
+        
+        with open(self.jsonl_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(asdict(telemetry)) + "\n")
+
+        return row
+
+    def log_footer(self, best_val_acc: float, best_epoch: int, total_duration: float) -> str:
+        footer = (
+            f"└──────┴────────────┴──────────┴───────────┴─────────┴─────────────┴──────────────┴──────────┴──────────┴─────────┴──────────┘\n"
+            f" 🏆 Training Completed in {total_duration:.1f}s | Best Val Acc: {best_val_acc:.2%} (Epoch {best_epoch})\n"
+            f"{'=' * 115}\n"
+        )
+        with open(self.log_file, "a", encoding="utf-8") as f:
+            f.write(footer + "\n")
+        return footer
 
 
 # ---------------------------------------------------------------------------
